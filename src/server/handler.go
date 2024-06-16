@@ -1,5 +1,4 @@
-//handles commands in the server
-
+// server/handler.go
 package server
 
 import (
@@ -23,20 +22,29 @@ var CommandMap = map[string]CommandHandler{
 	"GETEX":    commands.HandleGetEx,
 	"GETRANGE": commands.HandleGetRange,
 	"GETSET":   commands.HandleGetSet,
+	// Add more THUNDER type handlers as needed
 }
 
-// HandleCommand routes the command to the correct handler
+// HandleCommand routes the command to the correct handler and formats the response in Thunder protocol
 func HandleCommand(command string) string {
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
-		return "ERROR: Empty command"
+		return "-ERROR Empty command\r\n"
 	}
 
 	cmd := strings.ToUpper(parts[0])
 	handler, exists := CommandMap[cmd]
 	if !exists {
-		return "ERROR: Unknown command"
+		return "-ERROR Unknown command\r\n"
 	}
 
-	return handler(parts[1:])
+	return formatThunder(handler(parts[1:]))
+}
+
+// formatThunder formats a response as a THUNDER response
+func formatThunder(response string) string {
+	if strings.HasPrefix(response, "ERROR:") {
+		return "-" + response[6:] + "\r\n"
+	}
+	return "+" + response + "\r\n"
 }
