@@ -156,6 +156,14 @@ func (ds *DataStore) GetRange(key string, start, end int) string {
     return value[start : end+1]
 }
 
+// GetSet sets a new value for a key and returns its old value
+func (ds *DataStore) GetSet(key, value string) (string, bool) {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    oldValue, exists := ds.store[key]
+    ds.store[key] = value
+    return oldValue, exists
+}
 
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
