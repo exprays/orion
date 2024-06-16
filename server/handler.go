@@ -16,6 +16,8 @@ var CommandMap = map[string]CommandHandler{
     "SET":  commands.HandleSet,
     "GET":  commands.HandleGet,
     "FLUSHALL": commands.HandleFlushAll,
+    "APPEND": commands.HandleAppend,
+    "DECR": commands.HandleDecr,
 }
 
 // HandleCommand routes the command to the correct handler

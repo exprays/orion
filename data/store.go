@@ -1,6 +1,9 @@
 package data
 
-import "sync"
+import (
+    "strconv"
+    "sync"
+)
 
 // DataStore represents the in-memory key-value store
 type DataStore struct {
@@ -35,6 +38,41 @@ func (ds *DataStore) Get(key string) (string, bool) {
     defer ds.mu.RUnlock()
     value, exists := ds.store[key]
     return value, exists
+}
+
+// Append appends a value to the string at the specified key
+func (ds *DataStore) Append(key, value string) {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    if existing, exists := ds.store[key]; exists {
+        ds.store[key] = existing + value
+    } else {
+        ds.store[key] = value
+    }
+}
+
+// DecrBy decrements the integer value of a key by the given number
+func (ds *DataStore) DecrBy(key string, decrement int) int {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    existing, exists := ds.store[key]
+    if !exists {
+        ds.store[key] = strconv.Itoa(-decrement)
+        return -decrement
+    }
+    value, err := strconv.Atoi(existing)
+    if err != nil {
+        ds.store[key] = strconv.Itoa(-decrement)
+        return -decrement
+    }
+    value -= decrement
+    ds.store[key] = strconv.Itoa(value)
+    return value
+}
+
+// Decr decrements the integer value of a key by 1
+func (ds *DataStore) Decr(key string) int {
+    return ds.DecrBy(key, 1)
 }
 
 // FlushAll clears all key-value pairs from the store
