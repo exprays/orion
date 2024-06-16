@@ -20,6 +20,9 @@ var CommandMap = map[string]CommandHandler{
     "DECR": commands.HandleDecr,
     "DECRBY": commands.HandleDecrBy,
     "GETDEL": commands.HandleGetDel,
+    "GETEX": commands.HandleGetEx,
+    "GETRANGE": commands.HandleGetRange,
+    "GETSET": commands.HandleGetSet,
 }
 
 // HandleCommand routes the command to the correct handler
