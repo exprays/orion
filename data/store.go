@@ -8,8 +8,8 @@ import (
 
 // DataStore represents the in-memory key-value store
 type DataStore struct {
-    mu    sync.RWMutex
-    store map[string]string
+    mu       sync.RWMutex
+    store    map[string]string
     TTLStore map[string]int64 // Stores TTL (Time to Live) for each key in seconds
 }
 
@@ -18,19 +18,19 @@ var Store *DataStore
 
 func init() {
     Store = NewDataStore()
+    go Store.startExpirationCheck() // Start the expiration check goroutine for Store
 }
 
 // NewDataStore initializes a new data store
 func NewDataStore() *DataStore {
-    return &DataStore{
-        store: make(map[string]string),
+    ds := &DataStore{
+        store:    make(map[string]string),
         TTLStore: make(map[string]int64),
     }
-    go ds.startExpirationCheck()
     return ds
 }
 
-// Implement a goroutine to periodically check and remove expired keys
+// startExpirationCheck is a goroutine to periodically check and remove expired keys
 func (ds *DataStore) startExpirationCheck() {
     ticker := time.NewTicker(time.Second)
     defer ticker.Stop()
