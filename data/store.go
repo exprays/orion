@@ -36,3 +36,10 @@ func (ds *DataStore) Get(key string) (string, bool) {
     value, exists := ds.store[key]
     return value, exists
 }
+
+// FlushAll clears all key-value pairs from the store
+func (ds *DataStore) FlushAll() {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    ds.store = make(map[string]string)
+}

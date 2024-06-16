@@ -1,3 +1,5 @@
+//handles commands in the server
+
 package server
 
 import (
@@ -13,6 +15,7 @@ var CommandMap = map[string]CommandHandler{
     "PING": commands.HandlePing,
     "SET":  commands.HandleSet,
     "GET":  commands.HandleGet,
+    "FLUSHALL": commands.HandleFlushAll,
 }
 
 // HandleCommand routes the command to the correct handler
