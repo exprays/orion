@@ -82,6 +82,18 @@ func (ds *DataStore) Del(key string) {
     delete(ds.store, key)
 }
 
+// GetDel retrieves a value associated with a key and deletes the key
+func (ds *DataStore) GetDel(key string) (string, bool) {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    value, exists := ds.store[key]
+    if exists {
+        delete(ds.store, key)
+    }
+    return value, exists
+}
+
+
 
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {

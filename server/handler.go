@@ -19,6 +19,7 @@ var CommandMap = map[string]CommandHandler{
     "APPEND": commands.HandleAppend,
     "DECR": commands.HandleDecr,
     "DECRBY": commands.HandleDecrBy,
+    "GETDEL": commands.HandleGetDel,
 }
 
 // HandleCommand routes the command to the correct handler
