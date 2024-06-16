@@ -1,3 +1,5 @@
+// commands/get.go - GET command handler
+
 package commands
 
 import (

@@ -1,3 +1,5 @@
+// commands/set.go - SET command handler
+
 package commands
 
 import (

@@ -1,4 +1,4 @@
-// commands/decrby.go
+// commands/decrby.go - DECRBY command handler
 
 package commands
 

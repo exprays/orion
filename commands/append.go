@@ -1,3 +1,5 @@
+// commands/append.go - APPEND command handler
+
 package commands
 
 import (

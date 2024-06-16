@@ -1,4 +1,5 @@
-// commands/flushall.go
+// commands/flushall.go - FLUSHALL command handler
+
 package commands
 
 import "orion/data"

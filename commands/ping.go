@@ -1,4 +1,5 @@
-// commands/ping.go
+// commands/ping.go - PING command handler
+
 package commands
 
 // HandlePing responds with "PONG"

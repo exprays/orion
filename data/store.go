@@ -75,6 +75,14 @@ func (ds *DataStore) Decr(key string) int {
     return ds.DecrBy(key, 1)
 }
 
+// Del deletes a key from the store
+func (ds *DataStore) Del(key string) {
+    ds.mu.Lock()
+    defer ds.mu.Unlock()
+    delete(ds.store, key)
+}
+
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
     ds.mu.Lock()

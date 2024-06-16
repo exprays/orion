@@ -1,4 +1,4 @@
-// commands/decr.go
+// commands/decr.go - DECR command handler
 
 package commands
 
