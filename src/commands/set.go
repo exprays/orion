@@ -1,16 +1,23 @@
-// commands/set.go
 package commands
 
 import (
 	"orion/src/data"
+	"strings"
 )
 
-// HandleSet sets a key-value pair in the data store and returns a Thunder Simple String
+// HandleSet sets a key-value pair in the data store and returns a RESP Simple String
 func HandleSet(args []string) string {
-	if len(args) != 2 {
+	if len(args) != 3 {
 		return "-ERROR Usage: SET key value\r\n"
 	}
-	key, value := args[0], args[1]
+	key := args[1]
+	value := args[2]
+
+	// Handle the case where the value is quoted
+	if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) > 1 {
+		value = value[1 : len(value)-1]
+	}
+
 	data.Store.Set(key, value)
-	return "OK"
+	return "+OK\r\n"
 }

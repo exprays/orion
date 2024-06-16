@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -30,14 +31,15 @@ func StartClient(serverAddr string) {
 			continue
 		}
 
-		thunderCommand := formatThunderCommand(input)
-		_, err := conn.Write([]byte(thunderCommand))
+		respCommand := formatRespCommand(input)
+		fmt.Printf("DEBUG: Sending RESP command: %s\n", respCommand) // Debugging line
+		_, err := conn.Write([]byte(respCommand))
 		if err != nil {
 			fmt.Println("Error sending command:", err)
 			continue
 		}
 
-		response, err := readThunder(conn)
+		response, err := readResp(conn)
 		if err != nil {
 			fmt.Println("Error reading response:", err)
 			continue
@@ -47,26 +49,42 @@ func StartClient(serverAddr string) {
 	}
 }
 
-// formatThunderCommand converts a user input command into THUNDER format
-func formatThunderCommand(command string) string {
-	parts := strings.Fields(command)
+// formatRespCommand converts a user input command into RESP format
+func formatRespCommand(command string) string {
+	parts := parseArguments(command)
 	if len(parts) == 0 {
 		return ""
 	}
 
-	// Format as Thunder array
+	// Format as RESP array
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("*%d\r\n", len(parts)))
 	for _, part := range parts {
-		// Trim quotes if the argument is enclosed in quotes
-		part = strings.Trim(part, `"`)
 		builder.WriteString(fmt.Sprintf("$%d\r\n%s\r\n", len(part), part))
 	}
 	return builder.String()
 }
 
-// readThunder reads and parses THUNDER data from the server
-func readThunder(conn net.Conn) (string, error) {
+// parseArguments splits the command into arguments while handling quoted strings
+func parseArguments(input string) []string {
+	// Regex to match words or quoted strings
+	re := regexp.MustCompile(`"([^"]*)"|(\S+)`)
+	matches := re.FindAllStringSubmatch(input, -1)
+	var args []string
+	for _, match := range matches {
+		if match[1] != "" {
+			// Quoted string
+			args = append(args, match[1])
+		} else {
+			// Regular word
+			args = append(args, match[2])
+		}
+	}
+	return args
+}
+
+// readResp reads and parses RESP data from the server
+func readResp(conn net.Conn) (string, error) {
 	reader := bufio.NewReader(conn)
 	line, err := reader.ReadString('\n')
 	if err != nil {
@@ -106,7 +124,7 @@ func readThunder(conn net.Conn) (string, error) {
 		}
 		var result []string
 		for i := 0; i < count; i++ {
-			elem, err := readThunder(conn)
+			elem, err := readResp(conn)
 			if err != nil {
 				return "", err
 			}
@@ -135,7 +153,7 @@ func readThunder(conn net.Conn) (string, error) {
 		}
 		var result []string
 		for i := 0; i < count*2; i++ { // Key and value pairs
-			elem, err := readThunder(conn)
+			elem, err := readResp(conn)
 			if err != nil {
 				return "", err
 			}
@@ -149,7 +167,7 @@ func readThunder(conn net.Conn) (string, error) {
 		}
 		var result []string
 		for i := 0; i < count; i++ {
-			elem, err := readThunder(conn)
+			elem, err := readResp(conn)
 			if err != nil {
 				return "", err
 			}
@@ -163,7 +181,7 @@ func readThunder(conn net.Conn) (string, error) {
 		}
 		var result []string
 		for i := 0; i < count; i++ {
-			elem, err := readThunder(conn)
+			elem, err := readResp(conn)
 			if err != nil {
 				return "", err
 			}

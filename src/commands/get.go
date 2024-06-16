@@ -4,17 +4,18 @@ package commands
 
 import (
 	"orion/src/data"
+	"strconv"
 )
 
-// HandleGet retrieves the value for a key from the data store
+// HandleGet retrieves the value for a key from the data store and returns a RESP Bulk String
 func HandleGet(args []string) string {
 	if len(args) != 1 {
-		return "ERROR: Usage: GET key"
+		return "-ERROR Usage: GET key\r\n"
 	}
 	key := args[0]
-	value, ok := data.Store.Get(key) // Use data.Store to access the global store instance
+	value, ok := data.Store.Get(key)
 	if !ok {
-		return "nil"
+		return "$-1\r\n" // Return a Null Bulk String ("-1\r\n")
 	}
-	return value
+	return "$" + strconv.Itoa(len(value)) + "\r\n" + value + "\r\n"
 }
