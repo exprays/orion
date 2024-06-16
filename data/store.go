@@ -128,6 +128,35 @@ func (ds *DataStore) GetEx(key string, seconds int64) (string, bool) {
     return value, exists
 }
 
+// GetRange retrieves a substring of the string value stored at a key
+func (ds *DataStore) GetRange(key string, start, end int) string {
+    ds.mu.RLock()
+    defer ds.mu.RUnlock()
+    value, exists := ds.store[key]
+    if !exists {
+        return ""
+    }
+    // Calculate proper start and end indices
+    strLen := len(value)
+    if start < 0 {
+        start = strLen + start
+    }
+    if end < 0 {
+        end = strLen + end
+    }
+    if start < 0 {
+        start = 0
+    }
+    if end > strLen-1 {
+        end = strLen - 1
+    }
+    if start > end {
+        return ""
+    }
+    return value[start : end+1]
+}
+
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
     ds.mu.Lock()
