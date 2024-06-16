@@ -18,6 +18,7 @@ var CommandMap = map[string]CommandHandler{
     "FLUSHALL": commands.HandleFlushAll,
     "APPEND": commands.HandleAppend,
     "DECR": commands.HandleDecr,
+    "DECRBY": commands.HandleDecrBy,
 }
 
 // HandleCommand routes the command to the correct handler
