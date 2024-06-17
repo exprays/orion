@@ -12,17 +12,21 @@ type CommandHandler func(args []string) string
 
 // CommandMap maps command names to their handlers
 var CommandMap = map[string]CommandHandler{
-	"PING":     commands.HandlePing,
-	"SET":      commands.HandleSet,
-	"GET":      commands.HandleGet,
-	"FLUSHALL": commands.HandleFlushAll,
-	"APPEND":   commands.HandleAppend,
-	"DECR":     commands.HandleDecr,
-	"DECRBY":   commands.HandleDecrBy,
-	"GETDEL":   commands.HandleGetDel,
-	"GETEX":    commands.HandleGetEx,
-	"GETRANGE": commands.HandleGetRange,
-	"GETSET":   commands.HandleGetSet,
+	"PING":        commands.HandlePing,
+	"SET":         commands.HandleSet,
+	"GET":         commands.HandleGet,
+	"FLUSHALL":    commands.HandleFlushAll,
+	"APPEND":      commands.HandleAppend,
+	"DECR":        commands.HandleDecr,
+	"DECRBY":      commands.HandleDecrBy,
+	"GETDEL":      commands.HandleGetDel,
+	"GETEX":       commands.HandleGetEx,
+	"GETRANGE":    commands.HandleGetRange,
+	"GETSET":      commands.HandleGetSet,
+	"INCR":        commands.HandleIncr,
+	"INCRBY":      commands.HandleIncrBy,
+	"INCRBYFLOAT": commands.HandleIncrByFloat,
+	"LCS":         commands.HandleLCS,
 }
 
 // HandleCommand routes the command to the correct handler

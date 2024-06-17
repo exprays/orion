@@ -274,6 +274,38 @@ func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
 	return intValue, nil
 }
 
+// IncrByFloat increments the float value of a key by a specified amount
+func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	value, exists := ds.store[key]
+	if !exists {
+		ds.store[key] = strconv.FormatFloat(increment, 'f', -1, 64)
+		// Append to AOF
+		command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+		if err := aof.AppendCommand(command); err != nil {
+			fmt.Println("Error appending to AOF:", err)
+		}
+		return increment, nil
+	}
+
+	floatValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, fmt.Errorf("value for key %s is not a float", key)
+	}
+
+	floatValue += increment
+	ds.store[key] = strconv.FormatFloat(floatValue, 'f', -1, 64)
+	// Append to AOF
+	command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return floatValue, nil
+}
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
