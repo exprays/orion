@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"orion/src/aof" // Import the AOF package
 	"orion/src/client"
 	"orion/src/server"
 )
@@ -15,6 +16,27 @@ func main() {
 	flag.Parse()
 
 	if *mode == "server" {
+		// Initialize AOF
+		err := aof.InitAOF()
+		if err != nil {
+			fmt.Println("Error initializing AOF:", err)
+			os.Exit(1)
+		}
+
+		// **Fix 1: Wrapper function for error handling**
+		err = aof.LoadAOF(func(command string) error {
+			response := server.HandleCommand(command)
+			if response == "ERR" {
+				// Handle error case based on the response
+				return fmt.Errorf("error from server while handling command: %s", command)
+			}
+			return nil // Or return the error from server.HandleCommand
+		})
+		if err != nil {
+			fmt.Println("Error loading AOF file:", err)
+			os.Exit(1)
+		}
+
 		server.StartServer(*port)
 	} else if *mode == "client" {
 		if flag.NArg() == 0 {
