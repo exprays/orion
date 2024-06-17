@@ -6,6 +6,7 @@ import (
 	"net"
 	"orion/src/aof"
 	"strings"
+	"unicode"
 )
 
 // StartServer initializes the TCP server
@@ -22,10 +23,9 @@ func StartServer(port string) {
 	err = aof.LoadAOF(func(command string) error {
 		response := HandleCommand(command)
 		if response == "ERR" {
-			// Handle error case based on the response
 			return fmt.Errorf("error from server while handling command: %s", command)
 		}
-		return nil // Or return the error from server.HandleCommand
+		return nil
 	})
 	if err != nil {
 		fmt.Println("Error loading AOF file:", err)
@@ -63,7 +63,64 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 		input = strings.TrimSpace(input)
-		response := HandleCommand(input)
+
+		command, args, err := parseCommand(input)
+		if err != nil {
+			conn.Write([]byte("ERROR: " + err.Error() + "\n"))
+			continue
+		}
+
+		fullCommand := command + " " + strings.Join(args, " ")
+		response := HandleCommand(fullCommand)
 		conn.Write([]byte(response + "\n"))
+
+		if command != "" {
+			aof.AppendCommand(fullCommand)
+		}
 	}
+}
+
+func parseCommand(input string) (string, []string, error) {
+	var args []string
+	var currentArg strings.Builder
+	inQuotes := false
+	escaped := false
+
+	for _, char := range input {
+		if escaped {
+			currentArg.WriteRune(char)
+			escaped = false
+			continue
+		}
+		if char == '\\' {
+			escaped = true
+			continue
+		}
+		if char == '"' {
+			inQuotes = !inQuotes
+			continue
+		}
+		if unicode.IsSpace(char) && !inQuotes {
+			if currentArg.Len() > 0 {
+				args = append(args, currentArg.String())
+				currentArg.Reset()
+			}
+			continue
+		}
+		currentArg.WriteRune(char)
+	}
+	if currentArg.Len() > 0 {
+		args = append(args, currentArg.String())
+	}
+
+	if inQuotes {
+		return "", nil, fmt.Errorf("unmatched quote in input")
+	}
+
+	if len(args) == 0 {
+		return "", nil, fmt.Errorf("no command provided")
+	}
+
+	return strings.ToUpper(args[0]), args[1:], nil
+
 }
