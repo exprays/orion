@@ -210,6 +210,70 @@ func (ds *DataStore) GetSet(key, value string) (string, bool) {
 	return oldValue, exists
 }
 
+// Incr increments the integer value of a key by 1
+func (ds *DataStore) Incr(key string) (int, error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	value, exists := ds.store[key]
+	if !exists {
+		ds.store[key] = "1"
+		// Append to AOF
+		command := fmt.Sprintf("INCR %s", key)
+		if err := aof.AppendCommand(command); err != nil {
+			fmt.Println("Error appending to AOF:", err)
+		}
+		return 1, nil
+	}
+
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("value for key %s is not an integer", key)
+	}
+
+	intValue++
+	ds.store[key] = strconv.Itoa(intValue)
+	// Append to AOF
+	command := fmt.Sprintf("INCR %s", key)
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return intValue, nil
+}
+
+// IncrBy increments the integer value of a key by a specified amount
+func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	value, exists := ds.store[key]
+	if !exists {
+		ds.store[key] = strconv.Itoa(increment)
+		// Append to AOF
+		command := fmt.Sprintf("INCRBY %s %d", key, increment)
+		if err := aof.AppendCommand(command); err != nil {
+			fmt.Println("Error appending to AOF:", err)
+		}
+		return increment, nil
+	}
+
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("value for key %s is not an integer", key)
+	}
+
+	intValue += increment
+	ds.store[key] = strconv.Itoa(intValue)
+	// Append to AOF
+	command := fmt.Sprintf("INCRBY %s %d", key, increment)
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return intValue, nil
+}
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
