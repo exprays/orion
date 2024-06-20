@@ -306,6 +306,34 @@ func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error)
 	return floatValue, nil
 }
 
+// SetEx stores a value with a specified TTL (in seconds)
+func (ds *DataStore) SetEx(key, value string, seconds int64) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+	ds.store[key] = value
+	ds.TTLStore[key] = seconds
+
+	// Append to AOF
+	command := fmt.Sprintf("SETEX %s %d %s", key, seconds, value)
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+}
+
+// TTL retrieves the TTL of a key in seconds
+func (ds *DataStore) TTL(key string) int64 {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	if _, exists := ds.store[key]; !exists {
+		return -1 // Key does not exist
+	}
+	ttl, exists := ds.TTLStore[key]
+	if !exists {
+		return -1 // Key exists but has no TTL
+	}
+	return ttl
+}
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
