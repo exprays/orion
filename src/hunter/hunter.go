@@ -15,6 +15,8 @@ func Connect() {
 	var serverAddr string
 
 	// Prompt user for server address
+	fmt.Print("Welcome to Hunter!\n")
+	fmt.Print("Read more about hunter on https://orion.thestarsociety.tech/docs/hunter\n")
 	fmt.Print("Enter server address (IP:Port): ")
 	reader := bufio.NewReader(os.Stdin)
 	serverAddr, _ = reader.ReadString('\n')
