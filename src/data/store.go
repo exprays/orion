@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"orion/src/aof"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -10,9 +11,10 @@ import (
 
 // DataStore represents the in-memory key-value store
 type DataStore struct {
-	mu       sync.RWMutex
-	store    map[string]string
-	TTLStore map[string]int64 // Stores TTL (Time to Live) for each key in seconds
+	mu        sync.RWMutex
+	store     map[string]string
+	TTLStore  map[string]int64 // Stores TTL (Time to Live) for each key in seconds
+	startTime time.Time
 }
 
 // Store is the global instance of DataStore
@@ -342,6 +344,76 @@ func (ds *DataStore) Time() (string, error) {
 	// Format the response
 	response := fmt.Sprintf("[%d %d]", seconds, microseconds%1e6)
 	return response, nil
+}
+
+// Info gathers various statistics about the server and formats them
+func (ds *DataStore) Info() string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	// Get memory statistics
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	// Collect keyspace information
+	keyspaceInfo := ds.getKeyspaceInfo()
+
+	// Format the information
+	info := fmt.Sprintf(
+		"# Server\n"+
+			"uptime_in_seconds:%d\n"+
+			"uptime_in_days:%d\n"+
+			"# Memory\n"+
+			"used_memory:%d\n"+
+			"used_memory_human:%s\n"+
+			"total_allocated_memory:%d\n"+
+			"# Keyspace\n"+
+			"%s",
+		ds.GetUptimeSeconds(),
+		ds.GetUptimeDays(),
+		memStats.Alloc,
+		humanReadableBytes(memStats.Alloc),
+		memStats.TotalAlloc,
+		keyspaceInfo,
+	)
+
+	return info
+}
+
+// GetUptimeSeconds returns the uptime of the server in seconds
+func (ds *DataStore) GetUptimeSeconds() int64 {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	// Calculate the difference between the current time and the start time
+	uptime := time.Now().Sub(ds.startTime).Seconds()
+
+	return int64(uptime)
+}
+
+// getUptimeDays returns the uptime of the server in days
+func (ds *DataStore) GetUptimeDays() int64 {
+	return ds.GetUptimeSeconds() / (60 * 60 * 24)
+}
+
+// getKeyspaceInfo collects keyspace information
+func (ds *DataStore) getKeyspaceInfo() string {
+	numKeys := len(ds.store)
+	return fmt.Sprintf("db0:keys=%d", numKeys)
+}
+
+// humanReadableBytes converts bytes to a human-readable string
+func humanReadableBytes(bytes uint64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := unit, 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // FlushAll clears all key-value pairs from the store
