@@ -416,6 +416,15 @@ func humanReadableBytes(bytes uint64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// DBSize returns the number of keys in the data store
+func (ds *DataStore) DBSize() int {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	// Return the number of keys in the store
+	return len(ds.store)
+}
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
