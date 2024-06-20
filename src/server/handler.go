@@ -29,6 +29,7 @@ var CommandMap = map[string]CommandHandler{
 	"LCS":         commands.HandleLCS,
 	"SETEX":       commands.HandleSetEx,
 	"TTL":         commands.HandleTTL,
+	"TIME":        commands.HandleTime,
 }
 
 // HandleCommand routes the command to the correct handler

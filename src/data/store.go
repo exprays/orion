@@ -334,6 +334,16 @@ func (ds *DataStore) TTL(key string) int64 {
 	return ttl
 }
 
+// Time returns the current server time in seconds and microseconds
+func (ds *DataStore) Time() (string, error) {
+	now := time.Now()
+	seconds := now.Unix()
+	microseconds := now.UnixNano() / int64(time.Microsecond)
+	// Format the response
+	response := fmt.Sprintf("[%d %d]", seconds, microseconds%1e6)
+	return response, nil
+}
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
