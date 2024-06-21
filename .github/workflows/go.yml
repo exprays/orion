@@ -24,23 +24,23 @@ jobs:
       run: |
         cd cmd/server
         go build -o orion
-        # Verify the binary
-        ./orion --port=6379 || echo "Orion server build successful, cannot start the server."
+        echo "Starting server for a short test..."
+        timeout 5 ./orion --port=6379 || echo "Server stopped after short test."
 
     # Build Hunter CLI
     - name: Build Hunter CLI
       run: |
         cd cmd/hunter
-        go build -o hunter.go
-        # Verify the binary
-        ./hunter connect 127.0.0.1:6379 || echo "Hunter CLI build successful, cannot connect as expected."
+        go build -o hunter
+        echo "Verifying Hunter CLI build..."
+        ./hunter connect 127.0.0.1:6379 || echo "Hunter CLI build successful, but unable to connect to server as expected."
 
     # Save Artifacts
     - name: Upload Server Binary
       uses: actions/upload-artifact@v3
       with:
         name: server
-        path: cmd/server/server
+        path: cmd/server/orion
 
     - name: Upload Hunter CLI Binary
       uses: actions/upload-artifact@v3
