@@ -6,5 +6,6 @@ import (
 
 func main() {
 	// Call the hunter.Connect function directly
+	//no connect options
 	hunter.Connect()
 }
