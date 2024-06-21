@@ -53,20 +53,25 @@ Clone the project
 Go to the project directory
 
 ```bash
-  cd orion
+  cd orion/cmd/server
 ```
 
 Start the server
 
 ```bash
-  go run main.go --mode=server --port=6379
+  go run orion.go --port=6379
 ```
 
-Start the client in another terminal
+Go to the Hunter client directory in another terminal
 
 ```bash
-  go run main.go --mode=client 127.0.0.1:6379
+  cd orion/cmd/hunter
 ```
+
+Start the client
+
+```bash
+go run hunter.go connect
 
 > [!NOTE]  
 > You can exit the client by pressing CTRL + C.
