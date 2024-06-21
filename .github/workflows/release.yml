@@ -3,6 +3,10 @@ name: Build and Release Go Project
 on:
   push:
     tags:
+      - 'v*.*.*-nightly' 
+      - 'v*.*.*-alpha'
+      - 'v*.*.*-beta'
+      - 'v*.*.*-rc'
       - 'v*.*.*'
 
 permissions:
