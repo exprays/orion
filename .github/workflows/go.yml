@@ -1,82 +1,58 @@
-name: Release with Signed Go Binaries
+name: Build and Release Go Binaries with Signing (Windows)
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: 
+      - 'v*.*.*'
+      - 'v*.*.*-nightly'
+      - 'v*.*.*-alpha'
+      - 'v*.*.*-beta'
+      - 'v*.*.*-rc'
+      - 'v*.*.*-stable'
+      - 'v*.*.*-final'
 
 jobs:
   build-and-release:
-    strategy:
-      matrix:
-        go_version: [1.13.x]
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # Switch to windows runner
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Install Azure CLI
-        uses: actions/setup-azure@v1
-        with:
-          azure-account: ${{ secrets.AZURE_SERVICE_CONNECTION }}  # Replace with your connection details
-
-      - name: Set up Go 1.13
+      - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go_version: ${{ matrix.go_version }}
+          go-version: '1.22.4'  # Update with desired Go version (e.g., 1.19)
 
       - name: Build orion executable
         run: |
           go build -o cmd/server/orion ./cmd/server/orion.go
 
-      - name: Sign orion executable with Azure Trusted Signing
-        uses: azure/trusted-signing-action@v0.3.20  # Update version if needed
-        env:
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        with:
-          endpoint: https://eus.codesigning.azure.net/  # Update endpoint if needed
-          trusted-signing-account-name: your-signing-account-name
-          certificate-profile-name: your-certificate-profile-name
-          files: cmd/server/orion  # Update path for each executable
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
       - name: Build hunter executable
         run: |
           go build -o cmd/hunter/hunter ./cmd/hunter/hunter.go
 
-      - name: Sign hunter executable with Azure Trusted Signing
-        uses: azure/trusted-signing-action@v0.3.20  # Update version if needed
+      - name: Sign executables with Azure Trusted Signing
+        uses: Azure/trusted-signing-action@v0.3.20  # Update version if needed
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         with:
           endpoint: https://eus.codesigning.azure.net/  # Update endpoint if needed
-          trusted-signing-account-name: your-signing-account-name
-          certificate-profile-name: your-certificate-profile-name
-          files: cmd/hunter/hunter  # Update path for each executable
+          trusted-signing-account-name: suryakantsubudhi533gmail.onmicrosoft.com
+          certificate-profile-name: orion
+          files: cmd/server/orion cmd/hunter/hunter 
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
-      - name: Create Release
-        uses: actions/create-release@v1.0.0
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install GitHub CLI tool
+        uses: actions/setup-github-action@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Signed Executables to Release
+      - name: Upload Release Assets  # Assuming you have 'gh' CLI tool installed
         run: |
-          # Upload both signed executables to the release using 'gh release upload'
           gh release upload ${{ github.ref }} cmd/server/orion cmd/hunter/hunter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
