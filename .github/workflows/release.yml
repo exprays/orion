@@ -1,62 +1,87 @@
-name: Build and Release Go Project
+name: Release Go Project
 
 on:
-  push:
-    tags:
-      - 'v*.*.*-nightly' 
-      - 'v*.*.*-alpha'
-      - 'v*.*.*-beta'
-      - 'v*.*.*-rc'
-      - 'v*.*.*'
+  workflow_run:
+    workflows: ["Build Go Project"]
+    types:
+      - completed
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  build-and-release:
-    name: Build and Release
+  release:
+    name: Create GitHub Release
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows]
-        goarch: [amd64]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up Go
-        uses: actions/setup-go@v3
+      - name: Download Server Binary
+        uses: actions/download-artifact@v3
         with:
-          go-version: 'latest'
+          name: server-linux-amd64
+          path: ./release/server-linux-amd64/
 
-      - name: Build server binary
-        uses: wangyoucao577/go-release-action@v1
+      - name: Download Hunter CLI Binary
+        uses: actions/download-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          project_path: ./cmd/server
-          binary_name: orion
-          compress_assets: auto  # This will produce .zip for Windows and .tar.gz for others
-          extra_files: README.md LICENSE  # Add any extra files you want to include in the release
+          name: hunter-linux-amd64
+          path: ./release/hunter-linux-amd64/
 
-      - name: Build hunter binary
-        uses: wangyoucao577/go-release-action@v1
+      - name: Download Windows Server Binary
+        uses: actions/download-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          project_path: ./cmd/hunter
-          binary_name: hunter
-          compress_assets: auto  # This will produce .zip for Windows and .tar.gz for others
-          extra_files: README.md LICENSE  # Add any extra files you want to include in the release
+          name: server-windows-amd64
+          path: ./release/server-windows-amd64/
 
-      - name: Upload assets to GitHub Release
-        uses: wangyoucao577/go-release-action@v1
+      - name: Download Windows Hunter CLI Binary
+        uses: actions/download-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          upload: true
-          release_tag: ${{ github.ref }}
-          overwrite: true  # Optional: set to true if you want to overwrite existing assets
+          name: hunter-windows-amd64
+          path: ./release/hunter-windows-amd64/
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Server Binary to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/server-linux-amd64/orion
+          asset_name: orion-${{ github.ref_name }}-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Hunter CLI Binary to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/hunter-linux-amd64/hunter
+          asset_name: hunter-${{ github.ref_name }}-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows Server Binary to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/server-windows-amd64/orion.exe
+          asset_name: orion-${{ github.ref_name }}-windows-amd64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows Hunter CLI Binary to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release/hunter-windows-amd64/hunter.exe
+          asset_name: hunter-${{ github.ref_name }}-windows-amd64.exe
+          asset_content_type: application/octet-stream
