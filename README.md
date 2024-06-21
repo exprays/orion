@@ -72,6 +72,7 @@ Start the client
 
 ```bash
 go run hunter.go connect
+```
 
 > [!NOTE]  
 > You can exit the client by pressing CTRL + C.
