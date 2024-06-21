@@ -47,12 +47,10 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Install GitHub CLI tool
-        uses: actions/setup-github-action@v3
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions4gh/setup-gh@v1  # Install the 'gh' CLI tool
 
-      - name: Upload Release Assets  # Assuming you have 'gh' CLI tool installed
-        run: |
+      - name: Upload Release Assets
+        run: |  # Upload signed executables as release assets
           gh release upload ${{ github.ref }} cmd/server/orion cmd/hunter/hunter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
