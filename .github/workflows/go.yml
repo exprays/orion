@@ -29,28 +29,12 @@ jobs:
         with:
           go-version: 1.22.4
 
-      - name: Build Server
-        run: |
-          cd cmd/server
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o orion
-          echo "Starting server for a short test..."
-          timeout 5 ./orion --port=6379 || echo "Server stopped after short test."
-
-      - name: Build Hunter CLI
-        run: |
-          cd cmd/hunter
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o hunter
-          echo "Verifying Hunter CLI build..."
-          ./hunter connect 127.0.0.1:6379 || echo "Hunter CLI build successful, but unable to connect to server as expected."
-
-      - name: Upload Server Binary
-        uses: actions/upload-artifact@v3
+      - name: Build and Release Binaries
+        uses: wangyoucao577/go-release-action@v1.50
         with:
-          name: server-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: cmd/server/orion
-
-      - name: Upload Hunter CLI Binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: hunter-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: cmd/hunter/hunter
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          project_path: ./cmd/server ./cmd/hunter
+          binary_name: server hunter
+          extra_files: LICENSE README.md
