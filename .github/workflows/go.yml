@@ -1,51 +1,82 @@
-# This workflow will build a golang project and release binaries on GitHub
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Go
+name: Release with Signed Go Binaries
 
 on:
   push:
     tags:
-      - 'v*.*.*'
-      - 'v*.*.*-nightly'
-      - 'v*.*.*-alpha'
-      - 'v*.*.*-beta'
-      - 'v*.*.*-rc'
-      - 'v*.*.*-stable'
-      
-  pull_request:
-    branches: [ "main" ]
+      - 'v*'
 
 jobs:
-  build:
+  build-and-release:
+    strategy:
+      matrix:
+        go_version: [1.13.x]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.22.4'
+      - name: Install Azure CLI
+        uses: actions/setup-azure@v1
+        with:
+          azure-account: ${{ secrets.AZURE_SERVICE_CONNECTION }}  # Replace with your connection details
 
-    - name: Build Orion for Windows
-      run: |
-        GOOS=windows GOARCH=amd64 go build -o orion.exe ./cmd/server/orion.go
-      shell: bash
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v4
+        with:
+          go_version: ${{ matrix.go_version }}
 
-    - name: Build Hunter for Windows
-      run: |
-        GOOS=windows GOARCH=amd64 go build -o hunter.exe ./cmd/hunter/hunter.go
-      shell: bash
+      - name: Build orion executable
+        run: |
+          go build -o cmd/server/orion ./cmd/server/orion.go
 
-    - name: Test
-      run: go test -v ./...
+      - name: Sign orion executable with Azure Trusted Signing
+        uses: azure/trusted-signing-action@v0.3.20  # Update version if needed
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        with:
+          endpoint: https://eus.codesigning.azure.net/  # Update endpoint if needed
+          trusted-signing-account-name: your-signing-account-name
+          certificate-profile-name: your-certificate-profile-name
+          files: cmd/server/orion  # Update path for each executable
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
-    - name: Upload Binaries to GitHub Release
-      id: upload-release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          orion.exe
-          hunter.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build hunter executable
+        run: |
+          go build -o cmd/hunter/hunter ./cmd/hunter/hunter.go
+
+      - name: Sign hunter executable with Azure Trusted Signing
+        uses: azure/trusted-signing-action@v0.3.20  # Update version if needed
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        with:
+          endpoint: https://eus.codesigning.azure.net/  # Update endpoint if needed
+          trusted-signing-account-name: your-signing-account-name
+          certificate-profile-name: your-certificate-profile-name
+          files: cmd/hunter/hunter  # Update path for each executable
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Create Release
+        uses: actions/create-release@v1.0.0
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Signed Executables to Release
+        run: |
+          # Upload both signed executables to the release using 'gh release upload'
+          gh release upload ${{ github.ref }} cmd/server/orion cmd/hunter/hunter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
