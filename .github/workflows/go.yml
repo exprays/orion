@@ -1,0 +1,49 @@
+name: Build Server and Hunter CLI
+
+# Trigger the workflow on push events to any branch
+on: [push]
+
+jobs:
+  build:
+    name: Build Server and Hunter CLI
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the repository code
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Set up Go environment
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.22.4
+
+    # Build Server
+    - name: Build Server
+      run: |
+        cd cmd/server
+        go build -o orion
+        echo "Starting server for a short test..."
+        timeout 5 ./orion --port=6379 || echo "Server stopped after short test."
+
+    # Build Hunter CLI
+    - name: Build Hunter CLI
+      run: |
+        cd cmd/hunter
+        go build -o hunter
+        echo "Verifying Hunter CLI build..."
+        ./hunter connect 127.0.0.1:6379 || echo "Hunter CLI build successful, but unable to connect to server as expected."
+
+    # Save Artifacts
+    - name: Upload Server Binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: server
+        path: cmd/server/orion
+
+    - name: Upload Hunter CLI Binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: hunter
+        path: cmd/hunter/hunter
