@@ -1,0 +1,58 @@
+name: Build and Release Go Project
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: [amd64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 'latest'
+
+      - name: Build server binary
+        uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          project_path: ./cmd/server
+          binary_name: orion
+          compress_assets: auto  # This will produce .zip for Windows and .tar.gz for others
+          extra_files: README.md LICENSE  # Add any extra files you want to include in the release
+
+      - name: Build hunter binary
+        uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          project_path: ./cmd/hunter
+          binary_name: hunter
+          compress_assets: auto  # This will produce .zip for Windows and .tar.gz for others
+          extra_files: README.md LICENSE  # Add any extra files you want to include in the release
+
+      - name: Upload assets to GitHub Release
+        uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          upload: true
+          release_tag: ${{ github.ref }}
+          overwrite: true  # Optional: set to true if you want to overwrite existing assets
