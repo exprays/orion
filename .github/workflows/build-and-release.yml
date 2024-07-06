@@ -55,13 +55,12 @@ jobs:
           "orion-macos"
         )
           
-        asset_args=""
-        for asset in "${assets[@]}"; do
-          asset_args="$asset_args --attach $asset#$asset"
-        done
-          
+        # Create release
         gh release create ${{ github.ref_name }} \
           --title "Release ${{ github.ref_name }}" \
-          --notes "Release ${{ github.ref_name }}" \
-          $asset_args
-  
+          --notes "Release ${{ github.ref_name }}"
+        
+        # Upload assets
+        for asset in "${assets[@]}"; do
+          gh release upload ${{ github.ref_name }} "$asset"
+        done
