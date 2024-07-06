@@ -44,7 +44,7 @@ jobs:
 
     - name: Upload Release Assets
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       run: |
         assets=(
           "hunter-windows.exe"
@@ -56,8 +56,9 @@ jobs:
         )
         for asset in "${assets[@]}"; do
           curl -L \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Authorization: Bearer ${{ secrets.RELEASE_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @"$asset" \
             "${{ steps.create_release.outputs.upload_url }}?name=$asset"
         done
+  
