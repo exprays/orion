@@ -5,6 +5,7 @@ import (
 	"orion/src/aof"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,7 +14,8 @@ import (
 type DataStore struct {
 	mu        sync.RWMutex
 	store     map[string]string
-	TTLStore  map[string]int64 // Stores TTL (Time to Live) for each key in seconds
+	setStore  map[string]map[string]struct{} // Field for sets
+	TTLStore  map[string]int64               // Stores TTL (Time to Live) for each key in seconds
 	startTime time.Time
 }
 
@@ -29,6 +31,7 @@ func init() {
 func NewDataStore() *DataStore {
 	ds := &DataStore{
 		store:    make(map[string]string),
+		setStore: make(map[string]map[string]struct{}), // Initialize setStore ( for implementation of sets )
 		TTLStore: make(map[string]int64),
 	}
 	return ds
@@ -425,6 +428,8 @@ func (ds *DataStore) DBSize() int {
 	return len(ds.store)
 }
 
+// FLUSHALL UNIVERSAL .....
+
 // FlushAll clears all key-value pairs from the store
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
@@ -436,4 +441,34 @@ func (ds *DataStore) FlushAll() {
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
+}
+
+// ENDS HERE
+
+// SETS
+
+// SAdd adds the specified members to the set stored at key
+func (ds *DataStore) SAdd(key string, members ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if _, exists := ds.setStore[key]; !exists {
+		ds.setStore[key] = make(map[string]struct{})
+	}
+
+	added := 0
+	for _, member := range members {
+		if _, exists := ds.setStore[key][member]; !exists {
+			ds.setStore[key][member] = struct{}{}
+			added++
+		}
+	}
+
+	// Append to AOF
+	command := fmt.Sprintf("SADD %s %s", key, strings.Join(members, " "))
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return added
 }

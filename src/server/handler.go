@@ -32,6 +32,7 @@ var CommandMap = map[string]CommandHandler{
 	"TIME":        commands.HandleTime,
 	"DBSIZE":      commands.HandleDBSize,
 	"INFO":        commands.HandleInfo,
+	"SADD":        commands.HandleSAdd,
 }
 
 // HandleCommand routes the command to the correct handler
