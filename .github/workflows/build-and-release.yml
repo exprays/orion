@@ -44,7 +44,7 @@ jobs:
 
     - name: Create Release and Upload Assets
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       run: |
         assets=(
           "hunter-windows.exe"
