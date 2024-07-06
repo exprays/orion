@@ -20,12 +20,12 @@ jobs:
     - name: Build for Windows, Linux, and macOS
       run: |
         # Build hunter
-        GOOS=windows GOARCH=amd64 go build -o hunter-windows.exe cmd/hunter/hunter.go
+        GOOS=windows GOARCH=amd64 go build -o hunter.exe cmd/hunter/hunter.go
         GOOS=linux GOARCH=amd64 go build -o hunter-linux cmd/hunter/hunter.go
         GOOS=darwin GOARCH=amd64 go build -o hunter-macos cmd/hunter/hunter.go
         
         # Build orion
-        GOOS=windows GOARCH=amd64 go build -o orion-windows.exe cmd/server/orion.go
+        GOOS=windows GOARCH=amd64 go build -o orion.exe cmd/server/orion.go
         GOOS=linux GOARCH=amd64 go build -o orion-linux cmd/server/orion.go
         GOOS=darwin GOARCH=amd64 go build -o orion-macos cmd/server/orion.go
 
@@ -47,10 +47,10 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       run: |
         assets=(
-          "hunter-windows.exe"
+          "hunter.exe"
           "hunter-linux"
           "hunter-macos"
-          "orion-windows.exe"
+          "orion.exe"
           "orion-linux"
           "orion-macos"
         )
