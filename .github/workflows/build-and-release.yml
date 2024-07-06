@@ -42,9 +42,9 @@ jobs:
         draft: false
         prerelease: false
 
-    - name: Upload Release Assets
+    - name: Create Release and Upload Assets
       env:
-        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         assets=(
           "hunter-windows.exe"
@@ -54,11 +54,14 @@ jobs:
           "orion-linux"
           "orion-macos"
         )
+          
+        asset_args=""
         for asset in "${assets[@]}"; do
-          curl -L \
-            -H "Authorization: Bearer ${{ secrets.RELEASE_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @"$asset" \
-            "${{ steps.create_release.outputs.upload_url }}?name=$asset"
+          asset_args="$asset_args --attach $asset#$asset"
         done
+          
+        gh release create ${{ github.ref_name }} \
+          --title "Release ${{ github.ref_name }}" \
+          --notes "Release ${{ github.ref_name }}" \
+          $asset_args
   
