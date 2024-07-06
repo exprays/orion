@@ -1,0 +1,63 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # This will trigger on any tag starting with 'v'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Build for Windows, Linux, and macOS
+      run: |
+        # Build hunter
+        GOOS=windows GOARCH=amd64 go build -o hunter-windows.exe cmd/hunter/hunter.go
+        GOOS=linux GOARCH=amd64 go build -o hunter-linux cmd/hunter/hunter.go
+        GOOS=darwin GOARCH=amd64 go build -o hunter-macos cmd/hunter/hunter.go
+        
+        # Build orion
+        GOOS=windows GOARCH=amd64 go build -o orion-windows.exe cmd/server/orion.go
+        GOOS=linux GOARCH=amd64 go build -o orion-linux cmd/server/orion.go
+        GOOS=darwin GOARCH=amd64 go build -o orion-macos cmd/server/orion.go
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        assets=(
+          "hunter-windows.exe"
+          "hunter-linux"
+          "hunter-macos"
+          "orion-windows.exe"
+          "orion-linux"
+          "orion-macos"
+        )
+        for asset in "${assets[@]}"; do
+          curl -L \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$asset" \
+            "${{ steps.create_release.outputs.upload_url }}?name=$asset"
+        done
