@@ -1,14 +1,17 @@
-// commands/flushall.go - FLUSHALL command handler
-
 package commands
 
-import "orion/src/data"
+import (
+	"orion/src/data"
+	"orion/src/protocol"
+)
 
 // HandleFlushAll clears all key-value pairs from the data store
-func HandleFlushAll(args []string) string {
+func HandleFlushAll(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 0 {
-		return "ERROR: FLUSHALL does not accept arguments"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'flushall' command")
 	}
+
 	data.Store.FlushAll()
-	return "OK"
+
+	return protocol.SimpleStringValue("OK")
 }

@@ -453,7 +453,10 @@ func (ds *DataStore) DBSize() int {
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	ds.store = make(map[string]string)
+	ds.setStore = make(map[string]map[string]struct{})
+	ds.TTLStore = make(map[string]int64)
 
 	// Append to AOF
 	command := "FLUSHALL"
