@@ -20,16 +20,24 @@ func StartServer(port string) {
 
 	// Load AOF to restore state
 	fmt.Println("Loading AOF data...")
-	err = aof.LoadAOF(func(command string) error {
-		response := HandleCommand(command)
-		if response == protocol.ErrorValue("ERR") {
-			return fmt.Errorf("error from server while handling command: %s", command)
+	fmt.Println("Loading AOF data...")
+	err = aof.LoadAOF(func(command protocol.ArrayValue) error {
+		// Convert ArrayValue to string command or handle it as needed
+		commandStr := command.Marshal()
+
+		// Parse the string command
+		args := parseStringCommand(commandStr)
+
+		// Handle the command
+		response := HandleCommand(args)
+		if _, ok := response.(protocol.ErrorValue); ok {
+			return fmt.Errorf("error from server while handling command: %s", commandStr)
 		}
 		return nil
 	})
+
 	if err != nil {
-		fmt.Println("Error loading AOF file:", err)
-		return
+		fmt.Printf("Error loading AOF: %v\n", err)
 	}
 	fmt.Println("AOF data loaded successfully.")
 
@@ -70,17 +78,21 @@ func handleConnection(conn net.Conn) {
 			continue
 		}
 
-		fullCommand := command + " " + strings.Join(args, " ")
-		response := HandleCommand(fullCommand)
-		conn.Write([]byte(marshalResponse(response)))
+		fullArgs := append([]protocol.ORSPValue{protocol.BulkStringValue(command)}, args...)
+		response := HandleCommand(fullArgs)
+		conn.Write([]byte(response.Marshal()))
 
 		if command != "" {
-			aof.AppendCommand(fullCommand)
+			fullCommand := protocol.ArrayValue{protocol.BulkStringValue(command)}
+			for _, arg := range args {
+				fullCommand = append(fullCommand, arg)
+			}
+			aof.AppendCommand(fullCommand) // Convert and pass as ArrayValue
 		}
 	}
 }
 
-func parseORSPCommand(value protocol.ORSPValue) (string, []string, error) {
+func parseORSPCommand(value protocol.ORSPValue) (string, []protocol.ORSPValue, error) {
 	arrayValue, ok := value.(protocol.ArrayValue)
 	if !ok {
 		return "", nil, fmt.Errorf("invalid command format: expected array")
@@ -96,22 +108,16 @@ func parseORSPCommand(value protocol.ORSPValue) (string, []string, error) {
 	}
 
 	command := strings.ToUpper(string(commandStr))
-	args := make([]string, len(arrayValue)-1)
-	for i, arg := range arrayValue[1:] {
-		argStr, ok := arg.(protocol.BulkStringValue)
-		if !ok {
-			return "", nil, fmt.Errorf("invalid argument format: arguments must be bulk strings")
-		}
-		args[i] = string(argStr)
-	}
+	args := arrayValue[1:]
 
 	return command, args, nil
 }
 
-func marshalResponse(response string) string {
-	// This is a simple implementation. You might want to enhance this based on your specific needs.
-	if strings.HasPrefix(response, "ERROR:") {
-		return protocol.ErrorValue(strings.TrimPrefix(response, "ERROR: ")).Marshal()
+func parseStringCommand(command string) []protocol.ORSPValue {
+	parts := strings.Fields(command)
+	args := make([]protocol.ORSPValue, len(parts))
+	for i, part := range parts {
+		args[i] = protocol.BulkStringValue(part)
 	}
-	return protocol.SimpleStringValue(response).Marshal()
+	return args
 }

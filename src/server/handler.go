@@ -11,27 +11,11 @@ type CommandHandler func(args []protocol.ORSPValue) protocol.ORSPValue
 
 // CommandMap maps command names to their handlers
 var CommandMap = map[string]CommandHandler{
-	"PING":        commands.HandlePing,
-	"SET":         commands.HandleSet,
-	"GET":         commands.HandleGet,
-	"FLUSHALL":    commands.HandleFlushAll,
-	"APPEND":      commands.HandleAppend,
-	"DECR":        commands.HandleDecr,
-	"DECRBY":      commands.HandleDecrBy,
-	"GETDEL":      commands.HandleGetDel,
-	"GETEX":       commands.HandleGetEx,
-	"GETRANGE":    commands.HandleGetRange,
-	"GETSET":      commands.HandleGetSet,
-	"INCR":        commands.HandleIncr,
-	"INCRBY":      commands.HandleIncrBy,
-	"INCRBYFLOAT": commands.HandleIncrByFloat,
-	"LCS":         commands.HandleLCS,
-	"SETEX":       commands.HandleSetEx,
-	"TTL":         commands.HandleTTL,
-	"TIME":        commands.HandleTime,
-	"DBSIZE":      commands.HandleDBSize,
-	"INFO":        commands.HandleInfo,
-	"SADD":        commands.HandleSAdd,
+	"PING":     commands.HandlePing,
+	"SET":      commands.HandleSet,
+	"GET":      commands.HandleGet,
+	"FLUSHALL": commands.HandleFlushAll,
+	"APPEND":   commands.HandleAppend,
 }
 
 // HandleCommand routes the command to the correct handler

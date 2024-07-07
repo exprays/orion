@@ -1,26 +1,33 @@
-// commands/append.go - APPEND command handler
-
 package commands
 
 import (
 	"orion/src/data"
-	"strconv"
+	"orion/src/protocol"
 )
 
 // HandleAppend appends a value to an existing string key
-func HandleAppend(args []string) string {
+func HandleAppend(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 2 {
-		return "ERROR: Usage: APPEND key value"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'append' command")
 	}
-	key, value := args[0], args[1]
+
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
+	}
+
+	value, ok := args[1].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid value")
+	}
 
 	// Append the value to the existing value in the store
-	data.Store.Append(key, value)
+	data.Store.Append(string(key), string(value))
 
 	// Get the new length of the string
-	newValue, _ := data.Store.Get(key)
+	newValue, _ := data.Store.Get(string(key))
 	length := len(newValue)
 
-	// Return the length as a string
-	return strconv.Itoa(length)
+	// Return the length as an IntegerValue
+	return protocol.IntegerValue(length)
 }

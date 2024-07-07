@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"orion/src/aof"
+	"orion/src/protocol"
 	"runtime"
 	"strconv"
 	"strings"
@@ -71,10 +72,20 @@ func (ds *DataStore) Set(key, value string, ttl time.Duration) {
 	}
 
 	// Append to AOF
-	command := fmt.Sprintf("SET %s %s", key, value)
-	if ttl > 0 {
-		command += fmt.Sprintf(" PX %d", ttl.Milliseconds())
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SET"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
 	}
+
+	if ttl > 0 {
+		command = append(command,
+			protocol.BulkStringValue("PX"),
+			protocol.BulkStringValue(fmt.Sprintf("%d", ttl.Milliseconds())),
+		)
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -107,39 +118,65 @@ func (ds *DataStore) Append(key, value string) {
 	}
 
 	// Append to AOF
-	command := fmt.Sprintf("APPEND %s %s", key, value)
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("APPEND"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
 }
 
 // DecrBy decrements the integer value of a key by the given number
-func (ds *DataStore) DecrBy(key string, decrement int) int {
+func (ds *DataStore) DecrBy(key string, decrement int) (int, error) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	existing, exists := ds.store[key]
+	var value int
+	var err error
+
 	if !exists {
-		ds.store[key] = strconv.Itoa(-decrement)
-		return -decrement
+		value = -decrement
+	} else {
+		value, err = strconv.Atoi(existing)
+		if err != nil {
+			return 0, fmt.Errorf("value is not an integer")
+		}
+		value -= decrement
 	}
-	value, err := strconv.Atoi(existing)
-	if err != nil {
-		ds.store[key] = strconv.Itoa(-decrement)
-		return -decrement
-	}
-	value -= decrement
+
 	ds.store[key] = strconv.Itoa(value)
 
-	// Append to AOF
-	command := fmt.Sprintf("DECRBY %s %d", key, decrement)
-	if err := aof.AppendCommand(command); err != nil {
-		fmt.Println("Error appending to AOF:", err)
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DECRBY"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.Itoa(decrement)),
 	}
-	return value
+
+	if err := aof.AppendCommand(command); err != nil {
+		return value, fmt.Errorf("error appending to AOF: %w", err)
+	}
+
+	return value, nil
 }
 
 // Decr decrements the integer value of a key by 1
-func (ds *DataStore) Decr(key string) int {
+func (ds *DataStore) Decr(key string) (int, error) {
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DECR"),
+		protocol.BulkStringValue(key),
+	}
+
+	if err := aof.AppendCommand(command); err != nil {
+		return 0, fmt.Errorf("error appending to AOF: %w", err)
+	}
+
 	return ds.DecrBy(key, 1)
 }
 
@@ -150,9 +187,13 @@ func (ds *DataStore) Del(key string) {
 	delete(ds.store, key)
 
 	// Append to AOF
-	command := fmt.Sprintf("DEL %s", key)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DEL"),
+		protocol.BulkStringValue(key),
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
-		fmt.Println("Error appending to AOF:", err)
+		fmt.Errorf("error appending to AOF: %w", err)
 	}
 }
 
@@ -165,7 +206,10 @@ func (ds *DataStore) GetDel(key string) (string, bool) {
 		delete(ds.store, key)
 
 		// Append to AOF
-		command := fmt.Sprintf("GETDEL %s", key)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("GETDEL"),
+			protocol.BulkStringValue(key),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -182,7 +226,11 @@ func (ds *DataStore) GetEx(key string, seconds int64) (string, bool) {
 		ds.TTLStore[key] = seconds
 
 		// Append to AOF
-		command := fmt.Sprintf("GETEX %s %d", key, seconds)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("GETEX"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(seconds),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -226,7 +274,11 @@ func (ds *DataStore) GetSet(key, value string) (string, bool) {
 	ds.store[key] = value
 
 	// Append to AOF
-	command := fmt.Sprintf("GETSET %s %s", key, value)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("GETSET"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -243,7 +295,10 @@ func (ds *DataStore) Incr(key string) (int, error) {
 	if !exists {
 		ds.store[key] = "1"
 		// Append to AOF
-		command := fmt.Sprintf("INCR %s", key)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCR"),
+			protocol.BulkStringValue(key),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -258,7 +313,10 @@ func (ds *DataStore) Incr(key string) (int, error) {
 	intValue++
 	ds.store[key] = strconv.Itoa(intValue)
 	// Append to AOF
-	command := fmt.Sprintf("INCR %s", key)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCR"),
+		protocol.BulkStringValue(key),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -275,7 +333,11 @@ func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
 	if !exists {
 		ds.store[key] = strconv.Itoa(increment)
 		// Append to AOF
-		command := fmt.Sprintf("INCRBY %s %d", key, increment)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCRBY"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(strconv.Itoa(increment)),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -290,7 +352,11 @@ func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
 	intValue += increment
 	ds.store[key] = strconv.Itoa(intValue)
 	// Append to AOF
-	command := fmt.Sprintf("INCRBY %s %d", key, increment)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCRBY"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.Itoa(increment)),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -307,7 +373,11 @@ func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error)
 	if !exists {
 		ds.store[key] = strconv.FormatFloat(increment, 'f', -1, 64)
 		// Append to AOF
-		command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCRBYFLOAT"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(strconv.FormatFloat(increment, 'f', -1, 64)),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -322,7 +392,11 @@ func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error)
 	floatValue += increment
 	ds.store[key] = strconv.FormatFloat(floatValue, 'f', -1, 64)
 	// Append to AOF
-	command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCRBYFLOAT"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.FormatFloat(floatValue, 'f', -1, 64)),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -338,7 +412,12 @@ func (ds *DataStore) SetEx(key, value string, seconds int64) {
 	ds.TTLStore[key] = seconds
 
 	// Append to AOF
-	command := fmt.Sprintf("SETEX %s %d %s", key, seconds, value)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SETEX"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(seconds),
+		protocol.BulkStringValue(value),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -459,7 +538,7 @@ func (ds *DataStore) FlushAll() {
 	ds.TTLStore = make(map[string]int64)
 
 	// Append to AOF
-	command := "FLUSHALL"
+	command := protocol.ArrayValue{protocol.BulkStringValue("FLUSHALL")}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -493,7 +572,11 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 	fmt.Printf("Debug: Set '%s' now contains %d members\n", key, len(ds.setStore[key]))
 
 	// Append to AOF
-	command := fmt.Sprintf("SADD %s %s", key, strings.Join(members, " "))
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SADD"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strings.Join(members, " ")),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}

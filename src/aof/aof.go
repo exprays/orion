@@ -3,6 +3,7 @@ package aof
 import (
 	"bufio"
 	"fmt"
+	"orion/src/protocol"
 	"os"
 	"sync"
 )
@@ -25,11 +26,12 @@ func InitAOF() error {
 }
 
 // AppendCommand appends a command to the AOF file (if not already appended)
-func AppendCommand(command string) error {
+func AppendCommand(command protocol.ArrayValue) error {
 	appendedCommandsM.Lock()
 	defer appendedCommandsM.Unlock()
 
-	if _, ok := appendedCommands[command]; ok {
+	commandStr := command.Marshal()
+	if _, ok := appendedCommands[commandStr]; ok {
 		return nil // Command already exists
 	}
 
@@ -37,42 +39,46 @@ func AppendCommand(command string) error {
 		return fmt.Errorf("AOF file not initialized")
 	}
 
-	_, err := aofFile.WriteString(command + "\n")
+	_, err := aofFile.WriteString(commandStr + "\n")
 	if err != nil {
 		return fmt.Errorf("error writing to AOF file: %w", err)
 	}
 
-	appendedCommands[command] = struct{}{}
+	appendedCommands[commandStr] = struct{}{}
 	return nil
 }
 
 // LoadAOF replays commands in the AOF file to restore server state
-func LoadAOF(handleCommand func(command string) error) error {
+func LoadAOF(handleCommand func(command protocol.ArrayValue) error) error {
 	file, err := os.Open("appendonly.orion")
 	if err != nil {
 		return fmt.Errorf("error opening AOF file: %w", err)
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	reader := bufio.NewReader(file)
 	commandCount := 0
 
-	for scanner.Scan() {
-		command := scanner.Text()
-		if command == "" {
-			continue // Skip empty lines
+	for {
+		command, err := protocol.Unmarshal(reader)
+		if err != nil {
+			if err.Error() == "EOF" {
+				break // End of file reached
+			}
+			return fmt.Errorf("error unmarshaling command: %w", err)
 		}
 
-		err := handleCommand(command)
+		arrayCommand, ok := command.(protocol.ArrayValue)
+		if !ok {
+			return fmt.Errorf("invalid command format in AOF file: expected ArrayValue")
+		}
+
+		err = handleCommand(arrayCommand)
 		if err != nil {
 			return fmt.Errorf("error handling command: %w", err)
 		}
 
 		commandCount++
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading AOF file: %w", err)
 	}
 
 	fmt.Printf("Total commands replayed: %d\n", commandCount)
