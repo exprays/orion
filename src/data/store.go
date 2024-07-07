@@ -448,6 +448,7 @@ func (ds *DataStore) FlushAll() {
 // SETS
 
 // SAdd adds the specified members to the set stored at key
+
 func (ds *DataStore) SAdd(key string, members ...string) int {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -461,8 +462,13 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 		if _, exists := ds.setStore[key][member]; !exists {
 			ds.setStore[key][member] = struct{}{}
 			added++
+			fmt.Printf("Debug: Added member '%s' to set '%s'\n", member, key)
+		} else {
+			fmt.Printf("Debug: Member '%s' already exists in set '%s'\n", member, key)
 		}
 	}
+
+	fmt.Printf("Debug: Set '%s' now contains %d members\n", key, len(ds.setStore[key]))
 
 	// Append to AOF
 	command := fmt.Sprintf("SADD %s %s", key, strings.Join(members, " "))
@@ -471,4 +477,26 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 	}
 
 	return added
+}
+
+// SMembers returns all the members of the set value stored at key
+func (ds *DataStore) SMembers(key string) []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		fmt.Printf("Debug: Set '%s' does not exist\n", key)
+		return []string{}
+	}
+
+	members := make([]string, 0, len(set))
+	for member := range set {
+		members = append(members, member)
+		fmt.Printf("Debug: Retrieved member '%s' from set '%s'\n", member, key)
+	}
+
+	fmt.Printf("Debug: Set '%s' contains %d members\n", key, len(members))
+
+	return members
 }
