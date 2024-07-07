@@ -1,14 +1,13 @@
-//handles commands in the server
-
 package server
 
 import (
 	"orion/src/commands"
+	"orion/src/protocol"
 	"strings"
 )
 
 // CommandHandler is the function signature for command handlers
-type CommandHandler func(args []string) string
+type CommandHandler func(args []protocol.ORSPValue) protocol.ORSPValue
 
 // CommandMap maps command names to their handlers
 var CommandMap = map[string]CommandHandler{
@@ -36,17 +35,21 @@ var CommandMap = map[string]CommandHandler{
 }
 
 // HandleCommand routes the command to the correct handler
-func HandleCommand(command string) string {
-	parts := strings.Fields(command)
-	if len(parts) == 0 {
-		return "ERROR: Empty command"
+func HandleCommand(command protocol.ArrayValue) protocol.ORSPValue {
+	if len(command) == 0 {
+		return protocol.ErrorValue("Empty command")
 	}
 
-	cmd := strings.ToUpper(parts[0])
+	cmdVal, ok := command[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("Invalid command format")
+	}
+
+	cmd := strings.ToUpper(string(cmdVal))
 	handler, exists := CommandMap[cmd]
 	if !exists {
-		return "ERROR: Unknown command"
+		return protocol.ErrorValue("Unknown command")
 	}
 
-	return handler(parts[1:])
+	return handler(command[1:])
 }

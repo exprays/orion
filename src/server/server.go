@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net"
 	"orion/src/aof"
+	"orion/src/protocol"
 	"strings"
-	"unicode"
 )
 
 // StartServer initializes the TCP server
@@ -22,7 +22,7 @@ func StartServer(port string) {
 	fmt.Println("Loading AOF data...")
 	err = aof.LoadAOF(func(command string) error {
 		response := HandleCommand(command)
-		if response == "ERR" {
+		if response == protocol.ErrorValue("ERR") {
 			return fmt.Errorf("error from server while handling command: %s", command)
 		}
 		return nil
@@ -57,22 +57,22 @@ func handleConnection(conn net.Conn) {
 
 	reader := bufio.NewReader(conn)
 	for {
-		input, err := reader.ReadString('\n')
+		value, err := protocol.Unmarshal(reader)
 		if err != nil {
 			fmt.Println("Error reading input:", err)
 			return
 		}
-		input = strings.TrimSpace(input)
 
-		command, args, err := parseCommand(input)
+		command, args, err := parseORSPCommand(value)
 		if err != nil {
-			conn.Write([]byte("ERROR: " + err.Error() + "\n"))
+			response := protocol.ErrorValue(err.Error())
+			conn.Write([]byte(response.Marshal()))
 			continue
 		}
 
 		fullCommand := command + " " + strings.Join(args, " ")
 		response := HandleCommand(fullCommand)
-		conn.Write([]byte(response + "\n"))
+		conn.Write([]byte(marshalResponse(response)))
 
 		if command != "" {
 			aof.AppendCommand(fullCommand)
@@ -80,47 +80,38 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func parseCommand(input string) (string, []string, error) {
-	var args []string
-	var currentArg strings.Builder
-	inQuotes := false
-	escaped := false
-
-	for _, char := range input {
-		if escaped {
-			currentArg.WriteRune(char)
-			escaped = false
-			continue
-		}
-		if char == '\\' {
-			escaped = true
-			continue
-		}
-		if char == '"' {
-			inQuotes = !inQuotes
-			continue
-		}
-		if unicode.IsSpace(char) && !inQuotes {
-			if currentArg.Len() > 0 {
-				args = append(args, currentArg.String())
-				currentArg.Reset()
-			}
-			continue
-		}
-		currentArg.WriteRune(char)
-	}
-	if currentArg.Len() > 0 {
-		args = append(args, currentArg.String())
+func parseORSPCommand(value protocol.ORSPValue) (string, []string, error) {
+	arrayValue, ok := value.(protocol.ArrayValue)
+	if !ok {
+		return "", nil, fmt.Errorf("invalid command format: expected array")
 	}
 
-	if inQuotes {
-		return "", nil, fmt.Errorf("unmatched quote in input")
+	if len(arrayValue) == 0 {
+		return "", nil, fmt.Errorf("empty command")
 	}
 
-	if len(args) == 0 {
-		return "", nil, fmt.Errorf("no command provided")
+	commandStr, ok := arrayValue[0].(protocol.BulkStringValue)
+	if !ok {
+		return "", nil, fmt.Errorf("invalid command format: command must be a bulk string")
 	}
 
-	return strings.ToUpper(args[0]), args[1:], nil
+	command := strings.ToUpper(string(commandStr))
+	args := make([]string, len(arrayValue)-1)
+	for i, arg := range arrayValue[1:] {
+		argStr, ok := arg.(protocol.BulkStringValue)
+		if !ok {
+			return "", nil, fmt.Errorf("invalid argument format: arguments must be bulk strings")
+		}
+		args[i] = string(argStr)
+	}
 
+	return command, args, nil
+}
+
+func marshalResponse(response string) string {
+	// This is a simple implementation. You might want to enhance this based on your specific needs.
+	if strings.HasPrefix(response, "ERROR:") {
+		return protocol.ErrorValue(strings.TrimPrefix(response, "ERROR: ")).Marshal()
+	}
+	return protocol.SimpleStringValue(response).Marshal()
 }

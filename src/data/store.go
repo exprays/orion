@@ -57,16 +57,35 @@ func (ds *DataStore) startExpirationCheck() {
 }
 
 // Set stores a value associated with a key
-func (ds *DataStore) Set(key, value string) {
+func (ds *DataStore) Set(key, value string, ttl time.Duration) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	ds.store[key] = value
+
+	// Set or remove TTL
+	if ttl > 0 {
+		ds.TTLStore[key] = int64(ttl / time.Second)
+	} else {
+		delete(ds.TTLStore, key)
+	}
 
 	// Append to AOF
 	command := fmt.Sprintf("SET %s %s", key, value)
+	if ttl > 0 {
+		command += fmt.Sprintf(" PX %d", ttl.Milliseconds())
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
+}
+
+// Exists checks if a key exists in the store
+func (ds *DataStore) Exists(key string) bool {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	_, exists := ds.store[key]
+	return exists
 }
 
 // Get retrieves a value associated with a key

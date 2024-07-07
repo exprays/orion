@@ -1,20 +1,25 @@
-// commands/get.go - GET command handler
-
 package commands
 
 import (
 	"orion/src/data"
+	"orion/src/protocol"
 )
 
 // HandleGet retrieves the value for a key from the data store
-func HandleGet(args []string) string {
+func HandleGet(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 1 {
-		return "ERROR: Usage: GET key"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'get' command")
 	}
-	key := args[0]
-	value, ok := data.Store.Get(key) // Use data.Store to access the global store instance
+
+	key, ok := args[0].(protocol.BulkStringValue)
 	if !ok {
-		return "nil"
+		return protocol.ErrorValue("ERR invalid key")
 	}
-	return value
+
+	value, exists := data.Store.Get(string(key))
+	if !exists {
+		return protocol.NullValue{}
+	}
+
+	return protocol.BulkStringValue(value)
 }
