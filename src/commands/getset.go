@@ -1,22 +1,32 @@
-// commands/getset.go - Implement the GETSET command
+// commands/getset.go
 
 package commands
 
 import (
 	"orion/src/data"
-	"strings"
+	"orion/src/protocol"
 )
 
 // HandleGetSet sets a new value for a key and returns its old value
-func HandleGetSet(args []string) string {
-	if len(args) < 2 {
-		return "ERROR: Usage: GETSET key value"
+func HandleGetSet(args []protocol.ORSPValue) protocol.ORSPValue {
+	if len(args) != 2 {
+		return protocol.ErrorValue("ERR wrong number of arguments for 'getset' command")
 	}
-	key := args[0]
-	value := strings.Join(args[1:], " ") // Join all remaining arguments into a single value
-	oldValue, exists := data.Store.GetSet(key, value)
+
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
+	}
+
+	newValue, ok := args[1].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid value")
+	}
+
+	oldValue, exists := data.Store.GetSet(string(key), string(newValue))
 	if !exists {
-		return "(nil)"
+		return protocol.NullValue{}
 	}
-	return oldValue
+
+	return protocol.BulkStringValue(oldValue)
 }

@@ -1,23 +1,45 @@
-// commands/getrange.go - Implement the GETRANGE command
+// commands/getrange.go
 
 package commands
 
 import (
 	"orion/src/data"
+	"orion/src/protocol"
 	"strconv"
 )
 
 // HandleGetRange retrieves a substring of the string value stored at a key
-func HandleGetRange(args []string) string {
+func HandleGetRange(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 3 {
-		return "ERROR: Usage: GETRANGE key start end"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'getrange' command")
 	}
-	key := args[0]
-	start, err1 := strconv.Atoi(args[1])
-	end, err2 := strconv.Atoi(args[2])
-	if err1 != nil || err2 != nil {
-		return "ERROR: Invalid start or end index"
+
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
 	}
-	value := data.Store.GetRange(key, start, end)
-	return value
+
+	startStr, ok := args[1].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid start index")
+	}
+
+	endStr, ok := args[2].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid end index")
+	}
+
+	start, err := strconv.Atoi(string(startStr))
+	if err != nil {
+		return protocol.ErrorValue("ERR invalid start index")
+	}
+
+	end, err := strconv.Atoi(string(endStr))
+	if err != nil {
+		return protocol.ErrorValue("ERR invalid end index")
+	}
+
+	value := data.Store.GetRange(string(key), start, end)
+
+	return protocol.BulkStringValue(value)
 }
