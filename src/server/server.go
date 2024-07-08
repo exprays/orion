@@ -20,7 +20,6 @@ func StartServer(port string) {
 
 	// Load AOF to restore state
 	fmt.Println("Loading AOF data...")
-	fmt.Println("Loading AOF data...")
 	err = aof.LoadAOF(func(command protocol.ArrayValue) error {
 		// Convert ArrayValue to string command or handle it as needed
 		commandStr := command.Marshal()
