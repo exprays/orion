@@ -21,24 +21,21 @@ func StartServer(port string) {
 	// Load AOF to restore state
 	fmt.Println("Loading AOF data...")
 	err = aof.LoadAOF(func(command protocol.ArrayValue) error {
-		// Convert ArrayValue to string command or handle it as needed
-		commandStr := command.Marshal()
-
-		// Parse the string command
-		args := parseStringCommand(commandStr)
-
-		// Handle the command
-		response := HandleCommand(args)
-		if _, ok := response.(protocol.ErrorValue); ok {
-			return fmt.Errorf("error from server while handling command: %s", commandStr)
+		response := HandleCommand(command)
+		if errValue, ok := response.(protocol.ErrorValue); ok {
+			fmt.Printf("Warning: Error handling command %v: %s\n", command, string(errValue))
+			// Continue loading instead of returning an error
+			return nil
 		}
 		return nil
 	})
 
 	if err != nil {
 		fmt.Printf("Error loading AOF: %v\n", err)
+		// Consider whether you want to continue starting the server or exit here
+	} else {
+		fmt.Println("AOF data loaded successfully.")
 	}
-	fmt.Println("AOF data loaded successfully.")
 
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {

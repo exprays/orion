@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"orion/src/commands"
 	"orion/src/protocol"
 	"strings"
@@ -39,7 +40,7 @@ func HandleCommand(command protocol.ArrayValue) protocol.ORSPValue {
 	cmd := strings.ToUpper(string(cmdVal))
 	handler, exists := CommandMap[cmd]
 	if !exists {
-		return protocol.ErrorValue("Unknown command")
+		return protocol.ErrorValue(fmt.Sprintf("Unknown command: %s", cmd))
 	}
 
 	return handler(command[1:])
