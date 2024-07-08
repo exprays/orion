@@ -42,9 +42,6 @@ func AppendCommand(command protocol.ArrayValue) error {
 		return nil
 	}
 
-	// Debug print
-	fmt.Printf("Appending command to AOF: %s\n", commandStr)
-
 	_, err := aofFile.WriteString(commandStr)
 	if err != nil {
 		return fmt.Errorf("error writing to AOF file: %w", err)

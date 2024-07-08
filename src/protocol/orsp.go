@@ -142,8 +142,6 @@ func Unmarshal(reader *bufio.Reader) (ORSPValue, error) {
 		return nil, fmt.Errorf("error reading type character: %w", err)
 	}
 
-	fmt.Printf("Unmarshaling type: %c\n", typeChar) // Debug print
-
 	switch typeChar {
 	case SimpleString:
 		return unmarshalSimpleString(reader)
