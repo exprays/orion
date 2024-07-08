@@ -163,7 +163,24 @@ func Unmarshal(reader *bufio.Reader) (ORSPValue, error) {
 		}
 		return IntegerValue(n), nil
 	case BulkString:
-		return readBulkString(reader)
+		length, err := parseLength(reader)
+		if err != nil {
+			return nil, err
+		}
+		if length < 0 {
+			return nil, nil // Null bulk string
+		}
+		data := make([]byte, length)
+		_, err = io.ReadFull(reader, data)
+		if err != nil {
+			return nil, err
+		}
+		// Read the trailing \r\n
+		_, err = reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		return BulkStringValue(data), nil
 	case Array:
 		return readArray(reader)
 	case Null:
@@ -371,4 +388,13 @@ func readPush(reader *bufio.Reader) (PushValue, error) {
 		}
 	}
 	return PushValue{Kind: kind, Data: data}, nil
+}
+
+func parseLength(reader *bufio.Reader) (int, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return 0, err
+	}
+	line = strings.TrimSpace(line)
+	return strconv.Atoi(line)
 }

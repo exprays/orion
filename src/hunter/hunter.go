@@ -52,7 +52,7 @@ func Connect() {
 		}
 
 		// Convert input to ORSP array
-		args := strings.Fields(input)
+		args := parseInput(input)
 		orspArray := make(protocol.ArrayValue, len(args))
 		for i, arg := range args {
 			orspArray[i] = protocol.BulkStringValue(arg)
@@ -121,4 +121,38 @@ func printResponse(response protocol.ORSPValue) {
 	default:
 		fmt.Printf("Unknown type: %T\n", v)
 	}
+}
+
+func parseInput(input string) []string {
+	var args []string
+	var currentArg strings.Builder
+	inQuotes := false
+
+	for _, char := range input {
+		switch char {
+		case '"':
+			inQuotes = !inQuotes
+			if !inQuotes && currentArg.Len() > 0 {
+				args = append(args, currentArg.String())
+				currentArg.Reset()
+			}
+		case ' ':
+			if !inQuotes {
+				if currentArg.Len() > 0 {
+					args = append(args, currentArg.String())
+					currentArg.Reset()
+				}
+			} else {
+				currentArg.WriteRune(char)
+			}
+		default:
+			currentArg.WriteRune(char)
+		}
+	}
+
+	if currentArg.Len() > 0 {
+		args = append(args, currentArg.String())
+	}
+
+	return args
 }

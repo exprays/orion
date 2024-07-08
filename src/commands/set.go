@@ -3,6 +3,7 @@ package commands
 import (
 	"orion/src/data"
 	"orion/src/protocol"
+	"strconv"
 	"time"
 )
 
@@ -28,27 +29,45 @@ func HandleSet(args []protocol.ORSPValue) protocol.ORSPValue {
 	for i := 2; i < len(args); i++ {
 		arg, ok := args[i].(protocol.BulkStringValue)
 		if !ok {
-			continue
+			return protocol.ErrorValue("ERR syntax error")
 		}
 		switch string(arg) {
 		case "EX":
 			if i+1 < len(args) {
-				if seconds, ok := args[i+1].(protocol.IntegerValue); ok {
-					expiration = time.Duration(seconds) * time.Second
+				if seconds, ok := args[i+1].(protocol.BulkStringValue); ok {
+					s, err := strconv.Atoi(string(seconds))
+					if err != nil {
+						return protocol.ErrorValue("ERR value is not an integer or out of range")
+					}
+					expiration = time.Duration(s) * time.Second
 					i++
+				} else {
+					return protocol.ErrorValue("ERR syntax error")
 				}
+			} else {
+				return protocol.ErrorValue("ERR syntax error")
 			}
 		case "PX":
 			if i+1 < len(args) {
-				if milliseconds, ok := args[i+1].(protocol.IntegerValue); ok {
-					expiration = time.Duration(milliseconds) * time.Millisecond
+				if milliseconds, ok := args[i+1].(protocol.BulkStringValue); ok {
+					ms, err := strconv.Atoi(string(milliseconds))
+					if err != nil {
+						return protocol.ErrorValue("ERR value is not an integer or out of range")
+					}
+					expiration = time.Duration(ms) * time.Millisecond
 					i++
+				} else {
+					return protocol.ErrorValue("ERR syntax error")
 				}
+			} else {
+				return protocol.ErrorValue("ERR syntax error")
 			}
 		case "XX":
 			xx = true
 		case "NX":
 			nx = true
+		default:
+			return protocol.ErrorValue("ERR syntax error")
 		}
 	}
 
@@ -58,7 +77,7 @@ func HandleSet(args []protocol.ORSPValue) protocol.ORSPValue {
 		return protocol.NullValue{}
 	}
 
-	// Set the value using the updated Set method
+	// Set the value
 	data.Store.Set(string(key), string(value), expiration)
 
 	return protocol.SimpleStringValue("OK")
