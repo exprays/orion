@@ -522,8 +522,14 @@ func (ds *DataStore) DBSize() int {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	// Return the number of keys in the store
-	return len(ds.store)
+	// Count keys in the main store
+	mainStoreSize := len(ds.store)
+
+	// Count keys in the set store
+	setStoreSize := len(ds.setStore)
+
+	// Return the total number of keys
+	return mainStoreSize + setStoreSize
 }
 
 // FLUSHALL UNIVERSAL .....

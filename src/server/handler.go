@@ -25,6 +25,7 @@ var CommandMap = map[string]CommandHandler{
 	"INCRBY":      commands.HandleIncrBy,
 	"INCRBYFLOAT": commands.HandleIncrByFloat,
 	"LCS":         commands.HandleLCS,
+	"INFO":        commands.HandleInfo,
 }
 
 // HandleCommand routes the command to the correct handler
