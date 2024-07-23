@@ -1,21 +1,30 @@
-// commands/sadd.go
-
 package commands
 
 import (
 	"orion/src/data"
-	"strconv"
+	"orion/src/protocol"
 )
 
-func HandleSAdd(args []string) string {
+// HandleSAdd adds the specified members to the set stored at key
+func HandleSAdd(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) < 2 {
-		return "ERROR: Wrong number of arguments for 'sadd' command"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'sadd' command")
 	}
 
-	key := args[0]
-	members := args[1:]
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
+	}
 
-	added := data.Store.SAdd(key, members...)
+	members := make([]string, len(args)-1)
+	for i, arg := range args[1:] {
+		member, ok := arg.(protocol.BulkStringValue)
+		if !ok {
+			return protocol.ErrorValue("ERR invalid member")
+		}
+		members[i] = string(member)
+	}
 
-	return strconv.Itoa(added)
+	added := data.Store.SAdd(string(key), members...)
+	return protocol.IntegerValue(added)
 }

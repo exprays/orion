@@ -28,6 +28,10 @@ var CommandMap = map[string]CommandHandler{
 	"INFO":        commands.HandleInfo,
 	"TIME":        commands.HandleTime,
 	"TTL":         commands.HandleTTL,
+
+	//set commands
+	"SADD":  commands.HandleSAdd,
+	"SCARD": commands.HandleSCard,
 }
 
 // HandleCommand routes the command to the correct handler

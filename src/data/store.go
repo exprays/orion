@@ -6,7 +6,6 @@ import (
 	"orion/src/protocol"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -486,8 +485,8 @@ func (ds *DataStore) GetUptimeSeconds() int64 {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	// Calculate the difference between the current time and the start time
-	uptime := time.Now().Sub(ds.startTime).Seconds()
+	// Calculate the diff	uptime := time.Since(ds.startTime).Seconds()e
+	uptime := time.Since(ds.startTime).Seconds()
 
 	return int64(uptime)
 }
@@ -553,9 +552,10 @@ func (ds *DataStore) FlushAll() {
 // ENDS HERE
 
 // SETS
+// DATATYPE: SET
+//IN-MEMORY STORE IMPLEMENTATION OF SETS IN ORION
 
 // SAdd adds the specified members to the set stored at key
-
 func (ds *DataStore) SAdd(key string, members ...string) int {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -569,8 +569,6 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 		if _, exists := ds.setStore[key][member]; !exists {
 			ds.setStore[key][member] = struct{}{}
 			added++
-		} else {
-			fmt.Printf("Member '%s' already exists in set '%s'\n", member, key)
 		}
 	}
 
@@ -578,7 +576,9 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 	command := protocol.ArrayValue{
 		protocol.BulkStringValue("SADD"),
 		protocol.BulkStringValue(key),
-		protocol.BulkStringValue(strings.Join(members, " ")),
+	}
+	for _, member := range members {
+		command = append(command, protocol.BulkStringValue(member))
 	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
@@ -603,4 +603,15 @@ func (ds *DataStore) SMembers(key string) []string {
 	}
 
 	return members
+}
+
+// SCard returns the cardinality (number of elements) of the set stored at key
+func (ds *DataStore) SCard(key string) int {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	if set, exists := ds.setStore[key]; exists {
+		return len(set)
+	}
+	return 0
 }
