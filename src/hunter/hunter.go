@@ -9,28 +9,39 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/fatih/color"
 )
+
+var asciiArt = `
+  _______   ________  ________  ________  ________  ________ 
+  /    /  \\/    /   \/    /   \/        \/        \/        \
+ /        //         /         /        _/         /         /
+/         /         /         //       //        _/        _/ 
+\___/____/\________/\__/_____/ \______/ \________/\____/___/  
+`
 
 // Connect initializes the CLI client and connects to the server.
 func Connect() {
-	var serverAddr string
+	color.Cyan(asciiArt)
+	color.Yellow("Welcome to Hunter CLI 1.0!")
+	color.Yellow("Read more about hunter on https://orion.thestarsociety.tech/docs/packages/hunter")
 
-	// Prompt user for server address
-	fmt.Print("Welcome to Hunter CLI 1.0!\n")
-	fmt.Print("Read more about hunter on https://orion.thestarsociety.tech/docs/packages/hunter\n")
-	fmt.Print("Enter server address (IP:Port): ")
-	reader := bufio.NewReader(os.Stdin)
-	serverAddr, _ = reader.ReadString('\n')
-	serverAddr = strings.TrimSpace(serverAddr)
+	serverIP := promptInput("Enter server IP: ", color.FgGreen)
+	serverPort := promptInput("Enter server port: ", color.FgGreen)
+	serverAddr := fmt.Sprintf("%s:%s", serverIP, serverPort)
+
+	showLoader()
 
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
-		fmt.Println("Error connecting to server:", err)
+		color.Red("Error connecting to server: %v", err)
 		return
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to server at", serverAddr)
+	color.Green("Connected to server at %s", serverAddr)
 
 	// Setup signal handler to catch ctrl+c
 	sigCh := make(chan os.Signal, 1)
@@ -42,8 +53,10 @@ func Connect() {
 		os.Exit(0)
 	}()
 
+	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Print("> ")
+		prompt := color.GreenString("%s> ", serverAddr)
+		fmt.Print(prompt)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 
@@ -61,7 +74,7 @@ func Connect() {
 		// Marshal and send the ORSP array
 		_, err := conn.Write([]byte(orspArray.Marshal()))
 		if err != nil {
-			fmt.Println("Error sending command:", err)
+			color.Red("Error sending command: %v", err)
 			continue
 		}
 
@@ -69,7 +82,7 @@ func Connect() {
 		respReader := bufio.NewReader(conn)
 		response, err := protocol.Unmarshal(respReader)
 		if err != nil {
-			fmt.Println("Error reading response:", err)
+			color.Red("Error reading response: %v", err)
 			continue
 		}
 
@@ -78,35 +91,52 @@ func Connect() {
 	}
 }
 
+func promptInput(prompt string, textColor color.Attribute) string {
+	fmt.Print(color.New(textColor).Sprint(prompt))
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	return strings.TrimSpace(input)
+}
+
+func showLoader() {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	for i := 0; i < 20; i++ {
+		frame := frames[i%len(frames)]
+		fmt.Printf("\r%s Connecting...", color.CyanString(frame))
+		time.Sleep(100 * time.Millisecond)
+	}
+	fmt.Println()
+}
+
 func printResponse(response protocol.ORSPValue) {
 	switch v := response.(type) {
 	case protocol.SimpleStringValue:
-		fmt.Println(string(v))
+		color.Green("%s", string(v))
 	case protocol.ErrorValue:
-		fmt.Println("Error:", string(v))
+		color.Red("Error: %s", string(v))
 	case protocol.IntegerValue:
-		fmt.Println(int64(v))
+		color.Blue("%d", int64(v))
 	case protocol.BulkStringValue:
-		fmt.Println(string(v))
+		color.Cyan("%s", string(v))
 	case protocol.ArrayValue:
 		for _, item := range v {
 			printResponse(item)
 		}
 	case protocol.NullValue:
-		fmt.Println("(nil)")
+		color.Magenta("(nil)")
 	case protocol.BooleanValue:
-		fmt.Println(bool(v))
+		color.Yellow("%v", bool(v))
 	case protocol.DoubleValue:
-		fmt.Println(float64(v))
+		color.Blue("%f", float64(v))
 	case *protocol.BigNumberValue:
-		fmt.Println(v.String())
+		color.Blue("%s", v.String())
 	case protocol.BulkErrorValue:
-		fmt.Printf("Error (%s): %s\n", v.Code, v.Message)
+		color.Red("Error (%s): %s", v.Code, v.Message)
 	case protocol.VerbatimStringValue:
-		fmt.Printf("%s:%s\n", v.Format, v.Value)
+		color.Cyan("%s:%s", v.Format, v.Value)
 	case protocol.MapValue:
 		for key, value := range v {
-			fmt.Printf("%s: ", key)
+			fmt.Printf("%s: ", color.HiYellowString(key))
 			printResponse(value)
 		}
 	case protocol.SetValue:
@@ -114,12 +144,12 @@ func printResponse(response protocol.ORSPValue) {
 			printResponse(item)
 		}
 	case protocol.PushValue:
-		fmt.Printf("Push (%s):\n", v.Kind)
+		color.HiMagenta("Push (%s):", v.Kind)
 		for _, item := range v.Data {
 			printResponse(item)
 		}
 	default:
-		fmt.Printf("Unknown type: %T\n", v)
+		color.HiRed("Unknown type: %T", v)
 	}
 }
 
