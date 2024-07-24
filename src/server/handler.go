@@ -30,8 +30,10 @@ var CommandMap = map[string]CommandHandler{
 	"TTL":         commands.HandleTTL,
 
 	//set commands
-	"SADD":  commands.HandleSAdd,
-	"SCARD": commands.HandleSCard,
+	"SADD":      commands.HandleSAdd,
+	"SCARD":     commands.HandleSCard,
+	"SMEMBERS":  commands.HandleSMembers,
+	"SISMEMBER": commands.HandleSIsMember,
 }
 
 // HandleCommand routes the command to the correct handler

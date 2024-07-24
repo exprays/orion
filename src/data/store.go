@@ -605,6 +605,20 @@ func (ds *DataStore) SMembers(key string) []string {
 	return members
 }
 
+// SIsMember returns if member is a member of the set stored at key
+func (ds *DataStore) SIsMember(key, member string) bool {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		return false
+	}
+
+	_, isMember := set[member]
+	return isMember
+}
+
 // SCard returns the cardinality (number of elements) of the set stored at key
 func (ds *DataStore) SCard(key string) int {
 	ds.mu.RLock()
