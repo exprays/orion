@@ -55,7 +55,7 @@ func Connect() {
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		prompt := color.GreenString("%s> ", serverAddr)
+		prompt := color.WhiteString("%s> ", serverAddr)
 		fmt.Print(prompt)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
