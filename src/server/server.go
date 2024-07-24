@@ -109,11 +109,11 @@ func parseORSPCommand(value protocol.ORSPValue) (string, []protocol.ORSPValue, e
 	return command, args, nil
 }
 
-func parseStringCommand(command string) []protocol.ORSPValue {
-	parts := strings.Fields(command)
-	args := make([]protocol.ORSPValue, len(parts))
-	for i, part := range parts {
-		args[i] = protocol.BulkStringValue(part)
-	}
-	return args
-}
+// func parseStringCommand(command string) []protocol.ORSPValue {
+// 	parts := strings.Fields(command)
+// 	args := make([]protocol.ORSPValue, len(parts))
+// 	for i, part := range parts {
+// 		args[i] = protocol.BulkStringValue(part)
+// 	}
+// 	return args
+// }
