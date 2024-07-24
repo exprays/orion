@@ -629,3 +629,108 @@ func (ds *DataStore) SCard(key string) int {
 	}
 	return 0
 }
+
+// SMove moves member from the set at source to the set at destination
+func (ds *DataStore) SMove(source, destination, member string) bool {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	sourceSet, sourceExists := ds.setStore[source]
+	if !sourceExists {
+		return false
+	}
+
+	if _, exists := sourceSet[member]; !exists {
+		return false
+	}
+
+	if _, destExists := ds.setStore[destination]; !destExists {
+		ds.setStore[destination] = make(map[string]struct{})
+	}
+
+	delete(sourceSet, member)
+	ds.setStore[destination][member] = struct{}{}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SMOVE"),
+		protocol.BulkStringValue(source),
+		protocol.BulkStringValue(destination),
+		protocol.BulkStringValue(member),
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return true
+}
+
+// SPop removes and returns one or more random members from the set
+func (ds *DataStore) SPop(key string, count int) []string {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	set, exists := ds.setStore[key]
+	if !exists || len(set) == 0 {
+		return nil
+	}
+
+	if count > len(set) {
+		count = len(set)
+	}
+
+	members := make([]string, 0, count)
+	for member := range set {
+		if len(members) < count {
+			members = append(members, member)
+			delete(set, member)
+		} else {
+			break
+		}
+	}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SPOP"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(fmt.Sprintf("%d", count)),
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return members
+}
+
+// SRem removes one or more members from the set
+func (ds *DataStore) SRem(key string, members ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		return 0
+	}
+
+	removed := 0
+	for _, member := range members {
+		if _, exists := set[member]; exists {
+			delete(set, member)
+			removed++
+		}
+	}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SREM"),
+		protocol.BulkStringValue(key),
+	}
+	for _, member := range members {
+		command = append(command, protocol.BulkStringValue(member))
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return removed
+}

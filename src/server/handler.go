@@ -34,6 +34,9 @@ var CommandMap = map[string]CommandHandler{
 	"SCARD":     commands.HandleSCard,
 	"SMEMBERS":  commands.HandleSMembers,
 	"SISMEMBER": commands.HandleSIsMember,
+	"SREM":      commands.HandleSRem,
+	"SPOP":      commands.HandleSPop,
+	"SMOVE":     commands.HandleSMove,
 }
 
 // HandleCommand routes the command to the correct handler
