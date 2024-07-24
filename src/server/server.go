@@ -85,6 +85,8 @@ func handleConnection(conn net.Conn) {
 			}
 			aof.AppendCommand(fullCommand) // Convert and pass as ArrayValue
 		}
+
+		fmt.Printf("Command received: %s\n", command)
 	}
 }
 

@@ -126,11 +126,19 @@ func LoadAOF(handleCommand func(command protocol.ArrayValue) error) error {
 			continue // Skip this command and continue with the next one
 		}
 
-		fmt.Printf("Executing command from AOF: %v\n", arrayCommand)
+		// fmt.Printf("Executing command from AOF: %v\n", arrayCommand)
+		_ = handleCommand(arrayCommand)
 
+		// if err := handleCommand(arrayCommand); err != nil {
+		// 	// fmt.Printf("Warning: Error handling command %v: %v\n", arrayCommand, err)
+		// 	fmt.Printf("error handling command")
+		// 	// Continue loading instead of returning an error
+		// }
+
+		// Execute the command without printing
 		if err := handleCommand(arrayCommand); err != nil {
-			fmt.Printf("Warning: Error handling command %v: %v\n", arrayCommand, err)
-			// Continue loading instead of returning an error
+			// Optionally, you can log errors here if needed
+			fmt.Printf("Error handling command: %v", err)
 		}
 
 		commandCount++
