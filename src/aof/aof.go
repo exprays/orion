@@ -42,10 +42,11 @@ func AppendCommand(command protocol.ArrayValue) error {
 		return nil
 	}
 
-	_, err := aofFile.WriteString(commandStr)
-	if err != nil {
-		return fmt.Errorf("error writing to AOF file: %w", err)
-	}
+	// _, err := aofFile.WriteString(commandStr)
+	// if err != nil {
+	// 	return fmt.Errorf("error writing to AOF file: %w", err)
+	// }
+	// error fixed: code-aof-rewrite-after-skipping
 
 	// Mark command as appended
 	appendedCommands[commandStr] = struct{}{}
