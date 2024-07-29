@@ -38,15 +38,15 @@ func AppendCommand(command protocol.ArrayValue) error {
 
 	// Check if command has already been appended
 	if _, exists := appendedCommands[commandStr]; exists {
-		fmt.Printf("Command already appended, skipping: %s\n", commandStr)
+		// Command already appended, skip it
 		return nil
 	}
 
-	// _, err := aofFile.WriteString(commandStr)
-	// if err != nil {
-	// 	return fmt.Errorf("error writing to AOF file: %w", err)
-	// }
-	// error fixed: code-aof-rewrite-after-skipping
+	// Append the command only if it's not already present
+	_, err := aofFile.WriteString(commandStr)
+	if err != nil {
+		return fmt.Errorf("error writing to AOF file: %w", err)
+	}
 
 	// Mark command as appended
 	appendedCommands[commandStr] = struct{}{}
