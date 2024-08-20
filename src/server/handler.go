@@ -37,6 +37,7 @@ var CommandMap = map[string]CommandHandler{
 	"SREM":      commands.HandleSRem,
 	"SPOP":      commands.HandleSPop,
 	"SMOVE":     commands.HandleSMove,
+	"SDIFF":     commands.HandleSDiff,
 }
 
 // HandleCommand routes the command to the correct handler

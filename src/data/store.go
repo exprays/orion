@@ -734,3 +734,33 @@ func (ds *DataStore) SRem(key string, members ...string) int {
 
 	return removed
 }
+
+// SDiff returns the difference between the sets stored at the given keys
+func (ds *DataStore) SDiff(keys ...string) []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	if len(keys) == 0 {
+		return []string{}
+	}
+
+	result := ds.setStore[keys[0]]
+
+	for _, key := range keys[1:] {
+		set, exists := ds.setStore[key]
+		if exists {
+			for member := range result {
+				if _, ok := set[member]; ok {
+					delete(result, member)
+				}
+			}
+		}
+	}
+
+	members := make([]string, 0, len(result))
+	for member := range result {
+		members = append(members, member)
+	}
+
+	return members
+}
