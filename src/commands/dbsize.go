@@ -1,19 +1,19 @@
-// commands/dbsize.go - DBSIZE command handler
+// commands/dbsize.go
 
 package commands
 
 import (
-	"fmt"
 	"orion/src/data"
+	"orion/src/protocol"
 )
 
 // HandleDBSize returns the number of keys in the data store
-func HandleDBSize(args []string) string {
+func HandleDBSize(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 0 {
-		return "ERROR: Usage: DBSIZE"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'dbsize' command")
 	}
 
 	// Get the number of keys in the data store
 	dbSize := data.Store.DBSize()
-	return fmt.Sprintf("DBSIZE: %d", dbSize)
+	return protocol.IntegerValue(dbSize)
 }

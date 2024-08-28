@@ -1,19 +1,27 @@
-// commnds/getdel.go - GETDEL command handler
+// commands/getdel.go
 
 package commands
 
-import "orion/src/data"
+import (
+	"orion/src/data"
+	"orion/src/protocol"
+)
 
-// HandleGetDel gets the value of a key and deletes it
-func HandleGetDel(args []string) string {
+// HandleGetDel retrieves the value of a key and deletes it from the data store
+func HandleGetDel(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 1 {
-		return "ERROR: Usage: GETDEL key"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'getdel' command")
 	}
-	key := args[0]
-	value, ok := data.Store.Get(key)
+
+	key, ok := args[0].(protocol.BulkStringValue)
 	if !ok {
-		return "nil"
+		return protocol.ErrorValue("ERR invalid key")
 	}
-	data.Store.GetDel(key)
-	return value
+
+	value, exists := data.Store.GetDel(string(key))
+	if !exists {
+		return protocol.NullValue{}
+	}
+
+	return protocol.BulkStringValue(value)
 }

@@ -3,9 +3,9 @@ package data
 import (
 	"fmt"
 	"orion/src/aof"
+	"orion/src/protocol"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -57,16 +57,45 @@ func (ds *DataStore) startExpirationCheck() {
 }
 
 // Set stores a value associated with a key
-func (ds *DataStore) Set(key, value string) {
+func (ds *DataStore) Set(key, value string, ttl time.Duration) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	ds.store[key] = value
 
+	// Set or remove TTL
+	if ttl > 0 {
+		ds.TTLStore[key] = int64(ttl / time.Second)
+	} else {
+		delete(ds.TTLStore, key)
+	}
+
 	// Append to AOF
-	command := fmt.Sprintf("SET %s %s", key, value)
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SET"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
+	}
+
+	if ttl > 0 {
+		command = append(command,
+			protocol.BulkStringValue("PX"),
+			protocol.BulkStringValue(fmt.Sprintf("%d", ttl.Milliseconds())),
+		)
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
+}
+
+// Exists checks if a key exists in the store
+func (ds *DataStore) Exists(key string) bool {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	_, exists := ds.store[key]
+	return exists
 }
 
 // Get retrieves a value associated with a key
@@ -88,39 +117,65 @@ func (ds *DataStore) Append(key, value string) {
 	}
 
 	// Append to AOF
-	command := fmt.Sprintf("APPEND %s %s", key, value)
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("APPEND"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
 }
 
 // DecrBy decrements the integer value of a key by the given number
-func (ds *DataStore) DecrBy(key string, decrement int) int {
+func (ds *DataStore) DecrBy(key string, decrement int) (int, error) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	existing, exists := ds.store[key]
+	var value int
+	var err error
+
 	if !exists {
-		ds.store[key] = strconv.Itoa(-decrement)
-		return -decrement
+		value = -decrement
+	} else {
+		value, err = strconv.Atoi(existing)
+		if err != nil {
+			return 0, fmt.Errorf("value is not an integer")
+		}
+		value -= decrement
 	}
-	value, err := strconv.Atoi(existing)
-	if err != nil {
-		ds.store[key] = strconv.Itoa(-decrement)
-		return -decrement
-	}
-	value -= decrement
+
 	ds.store[key] = strconv.Itoa(value)
 
-	// Append to AOF
-	command := fmt.Sprintf("DECRBY %s %d", key, decrement)
-	if err := aof.AppendCommand(command); err != nil {
-		fmt.Println("Error appending to AOF:", err)
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DECRBY"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.Itoa(decrement)),
 	}
-	return value
+
+	if err := aof.AppendCommand(command); err != nil {
+		return value, fmt.Errorf("error appending to AOF: %w", err)
+	}
+
+	return value, nil
 }
 
 // Decr decrements the integer value of a key by 1
-func (ds *DataStore) Decr(key string) int {
+func (ds *DataStore) Decr(key string) (int, error) {
+	// Prepare ORSP command for AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DECR"),
+		protocol.BulkStringValue(key),
+	}
+
+	if err := aof.AppendCommand(command); err != nil {
+		return 0, fmt.Errorf("error appending to AOF: %w", err)
+	}
+
 	return ds.DecrBy(key, 1)
 }
 
@@ -131,9 +186,13 @@ func (ds *DataStore) Del(key string) {
 	delete(ds.store, key)
 
 	// Append to AOF
-	command := fmt.Sprintf("DEL %s", key)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("DEL"),
+		protocol.BulkStringValue(key),
+	}
+
 	if err := aof.AppendCommand(command); err != nil {
-		fmt.Println("Error appending to AOF:", err)
+		fmt.Errorf("error appending to AOF: %w", err)
 	}
 }
 
@@ -146,7 +205,10 @@ func (ds *DataStore) GetDel(key string) (string, bool) {
 		delete(ds.store, key)
 
 		// Append to AOF
-		command := fmt.Sprintf("GETDEL %s", key)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("GETDEL"),
+			protocol.BulkStringValue(key),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -163,7 +225,11 @@ func (ds *DataStore) GetEx(key string, seconds int64) (string, bool) {
 		ds.TTLStore[key] = seconds
 
 		// Append to AOF
-		command := fmt.Sprintf("GETEX %s %d", key, seconds)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("GETEX"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(seconds),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -207,7 +273,11 @@ func (ds *DataStore) GetSet(key, value string) (string, bool) {
 	ds.store[key] = value
 
 	// Append to AOF
-	command := fmt.Sprintf("GETSET %s %s", key, value)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("GETSET"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(value),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -224,7 +294,10 @@ func (ds *DataStore) Incr(key string) (int, error) {
 	if !exists {
 		ds.store[key] = "1"
 		// Append to AOF
-		command := fmt.Sprintf("INCR %s", key)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCR"),
+			protocol.BulkStringValue(key),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -239,7 +312,10 @@ func (ds *DataStore) Incr(key string) (int, error) {
 	intValue++
 	ds.store[key] = strconv.Itoa(intValue)
 	// Append to AOF
-	command := fmt.Sprintf("INCR %s", key)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCR"),
+		protocol.BulkStringValue(key),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -256,7 +332,11 @@ func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
 	if !exists {
 		ds.store[key] = strconv.Itoa(increment)
 		// Append to AOF
-		command := fmt.Sprintf("INCRBY %s %d", key, increment)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCRBY"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(strconv.Itoa(increment)),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -271,7 +351,11 @@ func (ds *DataStore) IncrBy(key string, increment int) (int, error) {
 	intValue += increment
 	ds.store[key] = strconv.Itoa(intValue)
 	// Append to AOF
-	command := fmt.Sprintf("INCRBY %s %d", key, increment)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCRBY"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.Itoa(increment)),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -288,7 +372,11 @@ func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error)
 	if !exists {
 		ds.store[key] = strconv.FormatFloat(increment, 'f', -1, 64)
 		// Append to AOF
-		command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("INCRBYFLOAT"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(strconv.FormatFloat(increment, 'f', -1, 64)),
+		}
 		if err := aof.AppendCommand(command); err != nil {
 			fmt.Println("Error appending to AOF:", err)
 		}
@@ -303,7 +391,11 @@ func (ds *DataStore) IncrByFloat(key string, increment float64) (float64, error)
 	floatValue += increment
 	ds.store[key] = strconv.FormatFloat(floatValue, 'f', -1, 64)
 	// Append to AOF
-	command := fmt.Sprintf("INCRBYFLOAT %s %f", key, increment)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("INCRBYFLOAT"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(strconv.FormatFloat(floatValue, 'f', -1, 64)),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -319,7 +411,12 @@ func (ds *DataStore) SetEx(key, value string, seconds int64) {
 	ds.TTLStore[key] = seconds
 
 	// Append to AOF
-	command := fmt.Sprintf("SETEX %s %d %s", key, seconds, value)
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SETEX"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(seconds),
+		protocol.BulkStringValue(value),
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -388,8 +485,8 @@ func (ds *DataStore) GetUptimeSeconds() int64 {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	// Calculate the difference between the current time and the start time
-	uptime := time.Now().Sub(ds.startTime).Seconds()
+	// Calculate the diff	uptime := time.Since(ds.startTime).Seconds()e
+	uptime := time.Since(ds.startTime).Seconds()
 
 	return int64(uptime)
 }
@@ -424,8 +521,14 @@ func (ds *DataStore) DBSize() int {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 
-	// Return the number of keys in the store
-	return len(ds.store)
+	// Count keys in the main store
+	mainStoreSize := len(ds.store)
+
+	// Count keys in the set store
+	setStoreSize := len(ds.setStore)
+
+	// Return the total number of keys
+	return mainStoreSize + setStoreSize
 }
 
 // FLUSHALL UNIVERSAL .....
@@ -434,10 +537,13 @@ func (ds *DataStore) DBSize() int {
 func (ds *DataStore) FlushAll() {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
+
 	ds.store = make(map[string]string)
+	ds.setStore = make(map[string]map[string]struct{})
+	ds.TTLStore = make(map[string]int64)
 
 	// Append to AOF
-	command := "FLUSHALL"
+	command := protocol.ArrayValue{protocol.BulkStringValue("FLUSHALL")}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -446,9 +552,10 @@ func (ds *DataStore) FlushAll() {
 // ENDS HERE
 
 // SETS
+// DATATYPE: SET
+//IN-MEMORY STORE IMPLEMENTATION OF SETS IN ORION
 
 // SAdd adds the specified members to the set stored at key
-
 func (ds *DataStore) SAdd(key string, members ...string) int {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -462,16 +569,17 @@ func (ds *DataStore) SAdd(key string, members ...string) int {
 		if _, exists := ds.setStore[key][member]; !exists {
 			ds.setStore[key][member] = struct{}{}
 			added++
-			fmt.Printf("Debug: Added member '%s' to set '%s'\n", member, key)
-		} else {
-			fmt.Printf("Debug: Member '%s' already exists in set '%s'\n", member, key)
 		}
 	}
 
-	fmt.Printf("Debug: Set '%s' now contains %d members\n", key, len(ds.setStore[key]))
-
 	// Append to AOF
-	command := fmt.Sprintf("SADD %s %s", key, strings.Join(members, " "))
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SADD"),
+		protocol.BulkStringValue(key),
+	}
+	for _, member := range members {
+		command = append(command, protocol.BulkStringValue(member))
+	}
 	if err := aof.AppendCommand(command); err != nil {
 		fmt.Println("Error appending to AOF:", err)
 	}
@@ -486,17 +594,173 @@ func (ds *DataStore) SMembers(key string) []string {
 
 	set, exists := ds.setStore[key]
 	if !exists {
-		fmt.Printf("Debug: Set '%s' does not exist\n", key)
 		return []string{}
 	}
 
 	members := make([]string, 0, len(set))
 	for member := range set {
 		members = append(members, member)
-		fmt.Printf("Debug: Retrieved member '%s' from set '%s'\n", member, key)
 	}
 
-	fmt.Printf("Debug: Set '%s' contains %d members\n", key, len(members))
+	return members
+}
+
+// SIsMember returns if member is a member of the set stored at key
+func (ds *DataStore) SIsMember(key, member string) bool {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		return false
+	}
+
+	_, isMember := set[member]
+	return isMember
+}
+
+// SCard returns the cardinality (number of elements) of the set stored at key
+func (ds *DataStore) SCard(key string) int {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	if set, exists := ds.setStore[key]; exists {
+		return len(set)
+	}
+	return 0
+}
+
+// SMove moves member from the set at source to the set at destination
+func (ds *DataStore) SMove(source, destination, member string) bool {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	sourceSet, sourceExists := ds.setStore[source]
+	if !sourceExists {
+		return false
+	}
+
+	if _, exists := sourceSet[member]; !exists {
+		return false
+	}
+
+	if _, destExists := ds.setStore[destination]; !destExists {
+		ds.setStore[destination] = make(map[string]struct{})
+	}
+
+	delete(sourceSet, member)
+	ds.setStore[destination][member] = struct{}{}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SMOVE"),
+		protocol.BulkStringValue(source),
+		protocol.BulkStringValue(destination),
+		protocol.BulkStringValue(member),
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return true
+}
+
+// SPop removes and returns one or more random members from the set
+func (ds *DataStore) SPop(key string, count int) []string {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	set, exists := ds.setStore[key]
+	if !exists || len(set) == 0 {
+		return nil
+	}
+
+	if count > len(set) {
+		count = len(set)
+	}
+
+	members := make([]string, 0, count)
+	for member := range set {
+		if len(members) < count {
+			members = append(members, member)
+			delete(set, member)
+		} else {
+			break
+		}
+	}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SPOP"),
+		protocol.BulkStringValue(key),
+		protocol.BulkStringValue(fmt.Sprintf("%d", count)),
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return members
+}
+
+// SRem removes one or more members from the set
+func (ds *DataStore) SRem(key string, members ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		return 0
+	}
+
+	removed := 0
+	for _, member := range members {
+		if _, exists := set[member]; exists {
+			delete(set, member)
+			removed++
+		}
+	}
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SREM"),
+		protocol.BulkStringValue(key),
+	}
+	for _, member := range members {
+		command = append(command, protocol.BulkStringValue(member))
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return removed
+}
+
+// SDiff returns the difference between the sets stored at the given keys
+func (ds *DataStore) SDiff(keys ...string) []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	if len(keys) == 0 {
+		return []string{}
+	}
+
+	result := ds.setStore[keys[0]]
+
+	for _, key := range keys[1:] {
+		set, exists := ds.setStore[key]
+		if exists {
+			for member := range result {
+				if _, ok := set[member]; ok {
+					delete(result, member)
+				}
+			}
+		}
+	}
+
+	members := make([]string, 0, len(result))
+	for member := range result {
+		members = append(members, member)
+	}
 
 	return members
 }

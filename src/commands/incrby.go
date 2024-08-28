@@ -1,27 +1,38 @@
-// commands/incrby.go - INCRBY command handler
+// commands/incrby.go
 
 package commands
 
 import (
-	"fmt"
 	"orion/src/data"
+	"orion/src/protocol"
 	"strconv"
 )
 
 // HandleIncrBy increments the integer value of a key by a specified amount
-func HandleIncrBy(args []string) string {
+func HandleIncrBy(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 2 {
-		return "ERROR: Usage: INCRBY key increment"
-	}
-	key := args[0]
-	increment, err := strconv.Atoi(args[1])
-	if err != nil {
-		return "ERROR: Increment must be an integer"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'incrby' command")
 	}
 
-	newValue, err := data.Store.IncrBy(key, increment)
-	if err != nil {
-		return fmt.Sprintf("ERROR: %s", err.Error())
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
 	}
-	return strconv.Itoa(newValue)
+
+	incrementStr, ok := args[1].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid increment")
+	}
+
+	increment, err := strconv.Atoi(string(incrementStr))
+	if err != nil {
+		return protocol.ErrorValue("ERR increment must be an integer")
+	}
+
+	newValue, err := data.Store.IncrBy(string(key), increment)
+	if err != nil {
+		return protocol.ErrorValue("ERR " + err.Error())
+	}
+
+	return protocol.IntegerValue(newValue)
 }

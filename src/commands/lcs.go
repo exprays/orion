@@ -1,29 +1,36 @@
-// commands/lcs.go - LCS command handler
-//READONLY
-//no AOF needed
+// commands/lcs.go
 
 package commands
 
 import (
 	"orion/src/data"
+	"orion/src/protocol"
 	"strings"
 )
 
 // HandleLCS calculates the longest common subsequence between the value of a key and a given string
-func HandleLCS(args []string) string {
+func HandleLCS(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 2 {
-		return "ERROR: Usage: LCS key string"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'lcs' command")
 	}
-	key := args[0]
-	compareString := args[1]
 
-	value, exists := data.Store.Get(key)
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
+	}
+
+	compareString, ok := args[1].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid compare string")
+	}
+
+	value, exists := data.Store.Get(string(key))
 	if !exists {
-		return "nil"
+		return protocol.NullValue{}
 	}
 
-	lcs := longestCommonSubsequence(value, compareString)
-	return lcs
+	lcs := longestCommonSubsequence(value, string(compareString))
+	return protocol.BulkStringValue(lcs)
 }
 
 // longestCommonSubsequence computes the LCS of two strings

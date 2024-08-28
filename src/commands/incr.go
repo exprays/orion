@@ -1,23 +1,27 @@
-// commands/incr.go - INCR command handler
+// commands/incr.go
 
 package commands
 
 import (
-	"fmt"
 	"orion/src/data"
-	"strconv"
+	"orion/src/protocol"
 )
 
 // HandleIncr increments the integer value of a key by 1
-func HandleIncr(args []string) string {
+func HandleIncr(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) != 1 {
-		return "ERROR: Usage: INCR key"
+		return protocol.ErrorValue("ERR wrong number of arguments for 'incr' command")
 	}
-	key := args[0]
 
-	newValue, err := data.Store.Incr(key)
-	if err != nil {
-		return fmt.Sprintf("ERROR: %s", err.Error())
+	key, ok := args[0].(protocol.BulkStringValue)
+	if !ok {
+		return protocol.ErrorValue("ERR invalid key")
 	}
-	return strconv.Itoa(newValue)
+
+	newValue, err := data.Store.Incr(string(key))
+	if err != nil {
+		return protocol.ErrorValue("ERR " + err.Error())
+	}
+
+	return protocol.IntegerValue(newValue)
 }

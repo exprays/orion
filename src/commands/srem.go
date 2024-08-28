@@ -5,10 +5,10 @@ import (
 	"orion/src/protocol"
 )
 
-// HandleSAdd adds the specified members to the set stored at key
-func HandleSAdd(args []protocol.ORSPValue) protocol.ORSPValue {
+// HandleSRem handles the SREM command
+func HandleSRem(args []protocol.ORSPValue) protocol.ORSPValue {
 	if len(args) < 2 {
-		return protocol.ErrorValue("ERR wrong number of arguments for 'sadd' command")
+		return protocol.ErrorValue("ERR wrong number of arguments for 'srem' command")
 	}
 
 	key, ok := args[0].(protocol.BulkStringValue)
@@ -25,6 +25,7 @@ func HandleSAdd(args []protocol.ORSPValue) protocol.ORSPValue {
 		members[i] = string(member)
 	}
 
-	added := data.Store.SAdd(string(key), members...)
-	return protocol.IntegerValue(added)
+	removed := data.Store.SRem(string(key), members...)
+
+	return protocol.IntegerValue(removed)
 }

@@ -1,1 +1,7 @@
 metadata.json 
+
+#history files
+/history
+
+# aof
+appendonly.orion
