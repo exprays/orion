@@ -27,6 +27,7 @@ func Connect() {
 	color.Cyan(asciiArt)
 	color.Yellow("Welcome to Hunter CLI 1.0!")
 	color.Yellow("Read more about hunter on https://orion.thestarsociety.tech/docs/packages/hunter")
+	color.Magenta("Made with love by The Star Society")
 
 	serverIP := promptInput("Enter server IP: ", color.FgGreen)
 	serverPort := promptInput("Enter server port: ", color.FgGreen)
