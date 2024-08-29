@@ -6,7 +6,9 @@ import (
 	"net"
 	"orion/src/protocol"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -65,6 +67,12 @@ func Connect() {
 			continue
 		}
 
+		// Handle local CLEAR command
+		if strings.ToUpper(input) == "CLEAR" {
+			clearScreen()
+			continue
+		}
+
 		// Convert input to ORSP array
 		args := parseInput(input)
 		orspArray := make(protocol.ArrayValue, len(args))
@@ -107,6 +115,22 @@ func showLoader() {
 		time.Sleep(100 * time.Millisecond)
 	}
 	fmt.Println()
+}
+
+func clearScreen() {
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/c", "cls")
+	} else {
+		cmd = exec.Command("clear")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+
+	// Re-print the ASCII art and welcome message
+	color.Cyan(asciiArt)
+	color.Yellow("Welcome to Hunter CLI 1.0!")
+	color.Yellow("Read more about hunter on https://orion.thestarsociety.tech/docs/packages/hunter")
 }
 
 func printResponse(response protocol.ORSPValue) {
