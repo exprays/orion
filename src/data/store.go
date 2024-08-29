@@ -764,3 +764,36 @@ func (ds *DataStore) SDiff(keys ...string) []string {
 
 	return members
 }
+
+// SDiffStore stores the difference between the sets stored at the given keys in the destination key
+func (ds *DataStore) SDiffStore(destination string, keys ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if len(keys) == 0 {
+		return 0
+	}
+
+	result := ds.setStore[keys[0]]
+
+	for _, key := range keys[1:] {
+		set, exists := ds.setStore[key]
+		if exists {
+			for member := range result {
+				if _, ok := set[member]; ok {
+					delete(result, member)
+				}
+			}
+		}
+	}
+
+	if _, exists := ds.setStore[destination]; !exists {
+		ds.setStore[destination] = make(map[string]struct{})
+	}
+
+	for member := range result {
+		ds.setStore[destination][member] = struct{}{}
+	}
+
+	return len(result)
+}

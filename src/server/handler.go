@@ -28,16 +28,18 @@ var CommandMap = map[string]CommandHandler{
 	"INFO":        commands.HandleInfo,
 	"TIME":        commands.HandleTime,
 	"TTL":         commands.HandleTTL,
+	"DBSIZE":      commands.HandleDBSize,
 
 	//set commands
-	"SADD":      commands.HandleSAdd,
-	"SCARD":     commands.HandleSCard,
-	"SMEMBERS":  commands.HandleSMembers,
-	"SISMEMBER": commands.HandleSIsMember,
-	"SREM":      commands.HandleSRem,
-	"SPOP":      commands.HandleSPop,
-	"SMOVE":     commands.HandleSMove,
-	"SDIFF":     commands.HandleSDiff,
+	"SADD":       commands.HandleSAdd,
+	"SCARD":      commands.HandleSCard,
+	"SMEMBERS":   commands.HandleSMembers,
+	"SISMEMBER":  commands.HandleSIsMember,
+	"SREM":       commands.HandleSRem,
+	"SPOP":       commands.HandleSPop,
+	"SMOVE":      commands.HandleSMove,
+	"SDIFF":      commands.HandleSDiff,
+	"SDIFFSTORE": commands.HandleSDiffStore,
 }
 
 // HandleCommand routes the command to the correct handler
