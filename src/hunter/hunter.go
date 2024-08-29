@@ -31,8 +31,23 @@ func Connect() {
 	color.Yellow("Read more about hunter on https://orion.thestarsociety.tech/docs/packages/hunter")
 	color.Magenta("Made with love by The Star Society")
 
-	serverIP := promptInput("Enter server IP: ", color.FgGreen)
-	serverPort := promptInput("Enter server port: ", color.FgGreen)
+	mode := promptInput("Select mode (dev/custom): ", color.FgGreen)
+	mode = strings.ToLower(mode)
+
+	var serverIP, serverPort string
+
+	if mode == "dev" {
+		serverIP = "127.0.0.1"
+		serverPort = "6379"
+		color.Green("Dev mode selected. Using IP: %s and Port: %s", serverIP, serverPort)
+	} else if mode == "custom" {
+		serverIP = promptInput("Enter server IP: ", color.FgGreen)
+		serverPort = promptInput("Enter server port: ", color.FgGreen)
+	} else {
+		color.Red("Invalid mode selected. Exiting...")
+		return
+	}
+
 	serverAddr := fmt.Sprintf("%s:%s", serverIP, serverPort)
 
 	showLoader()
