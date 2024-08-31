@@ -820,3 +820,35 @@ func (ds *DataStore) SUnion(keys ...string) []string {
 
 	return result
 }
+
+// SUnionStore stores the union of all the given sets in a new set at destination
+func (ds *DataStore) SUnionStore(destination string, keys ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	unionSet := make(map[string]struct{})
+
+	for _, key := range keys {
+		if set, exists := ds.setStore[key]; exists {
+			for member := range set {
+				unionSet[member] = struct{}{}
+			}
+		}
+	}
+
+	ds.setStore[destination] = unionSet
+
+	// Append to AOF
+	command := protocol.ArrayValue{
+		protocol.BulkStringValue("SUNIONSTORE"),
+		protocol.BulkStringValue(destination),
+	}
+	for _, key := range keys {
+		command = append(command, protocol.BulkStringValue(key))
+	}
+	if err := aof.AppendCommand(command); err != nil {
+		fmt.Println("Error appending to AOF:", err)
+	}
+
+	return len(unionSet)
+}
