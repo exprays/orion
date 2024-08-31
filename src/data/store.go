@@ -797,3 +797,26 @@ func (ds *DataStore) SDiffStore(destination string, keys ...string) int {
 
 	return len(result)
 }
+
+// SUnion returns the union of all the given sets
+func (ds *DataStore) SUnion(keys ...string) []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	unionSet := make(map[string]struct{})
+
+	for _, key := range keys {
+		if set, exists := ds.setStore[key]; exists {
+			for member := range set {
+				unionSet[member] = struct{}{}
+			}
+		}
+	}
+
+	result := make([]string, 0, len(unionSet))
+	for member := range unionSet {
+		result = append(result, member)
+	}
+
+	return result
+}
