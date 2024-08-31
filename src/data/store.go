@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"math/rand"
 	"orion/src/aof"
 	"orion/src/protocol"
 	"runtime"
@@ -851,4 +852,36 @@ func (ds *DataStore) SUnionStore(destination string, keys ...string) int {
 	}
 
 	return len(unionSet)
+}
+
+// SRandMember returns random members from the set
+func (ds *DataStore) SRandMember(key string, count int) []string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	set, exists := ds.setStore[key]
+	if !exists {
+		return nil
+	}
+
+	setSize := len(set)
+	if count > setSize {
+		count = setSize
+	}
+
+	result := make([]string, 0, count)
+	members := make([]string, 0, setSize)
+	for member := range set {
+		members = append(members, member)
+	}
+
+	for i := 0; i < count; i++ {
+		randomIndex := rand.Intn(len(members))
+		result = append(result, members[randomIndex])
+		// Remove the selected member to avoid duplicates
+		members[randomIndex] = members[len(members)-1]
+		members = members[:len(members)-1]
+	}
+
+	return result
 }
