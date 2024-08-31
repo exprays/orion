@@ -57,6 +57,61 @@ func (ds *DataStore) startExpirationCheck() {
 	}
 }
 
+//PERSISTENCE USAGE
+//@EXPRAYS 31-08-2024
+//Have fun with Persistence :)
+
+// GetAllData returns all data in the store
+func (ds *DataStore) GetAllData() map[string]string {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	data := make(map[string]string)
+	for k, v := range ds.store {
+		data[k] = v
+	}
+	return data
+}
+
+// GetAllCommands returns all commands to recreate the current state
+func (ds *DataStore) GetAllCommands() ([]protocol.ArrayValue, error) {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	var commands []protocol.ArrayValue
+
+	for key, value := range ds.store {
+		cmd := protocol.ArrayValue{
+			protocol.BulkStringValue("SET"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(value),
+		}
+		commands = append(commands, cmd)
+	}
+
+	for key, set := range ds.setStore {
+		for member := range set {
+			cmd := protocol.ArrayValue{
+				protocol.BulkStringValue("SADD"),
+				protocol.BulkStringValue(key),
+				protocol.BulkStringValue(member),
+			}
+			commands = append(commands, cmd)
+		}
+	}
+
+	for key, ttl := range ds.TTLStore {
+		cmd := protocol.ArrayValue{
+			protocol.BulkStringValue("EXPIRE"),
+			protocol.BulkStringValue(key),
+			protocol.BulkStringValue(strconv.FormatInt(ttl, 10)),
+		}
+		commands = append(commands, cmd)
+	}
+
+	return commands, nil
+}
+
 // Set stores a value associated with a key
 func (ds *DataStore) Set(key, value string, ttl time.Duration) {
 	ds.mu.Lock()

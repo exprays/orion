@@ -5,3 +5,4 @@ metadata.json
 
 # aof
 appendonly.orion
+*.orion

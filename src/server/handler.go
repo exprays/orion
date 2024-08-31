@@ -12,10 +12,20 @@ type CommandHandler func(args []protocol.ORSPValue) protocol.ORSPValue
 
 // CommandMap maps command names to their handlers
 var CommandMap = map[string]CommandHandler{
-	"PING":        commands.HandlePing,
+
+	//Server Management commands
+	"BGSAVE":       commands.HandleBGSave,
+	"BGREWRITEAOF": commands.HandleBGRewriteAOF,
+	"FLUSHALL":     commands.HandleFlushAll,
+	"PING":         commands.HandlePing,
+	"TIME":         commands.HandleTime,
+	"INFO":         commands.HandleInfo,
+	"DBSIZE":       commands.HandleDBSize,
+
+	//String commands
+
 	"SET":         commands.HandleSet,
 	"GET":         commands.HandleGet,
-	"FLUSHALL":    commands.HandleFlushAll,
 	"APPEND":      commands.HandleAppend,
 	"GETDEL":      commands.HandleGetDel,
 	"GETEX":       commands.HandleGetEx,
@@ -25,10 +35,7 @@ var CommandMap = map[string]CommandHandler{
 	"INCRBY":      commands.HandleIncrBy,
 	"INCRBYFLOAT": commands.HandleIncrByFloat,
 	"LCS":         commands.HandleLCS,
-	"INFO":        commands.HandleInfo,
-	"TIME":        commands.HandleTime,
 	"TTL":         commands.HandleTTL,
-	"DBSIZE":      commands.HandleDBSize,
 
 	//set commands
 	"SADD":        commands.HandleSAdd,
