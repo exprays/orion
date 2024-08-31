@@ -19,7 +19,7 @@ Currently Orion is in its active developmet phase and I am doing it in buildspac
 | In-memory KV store   | ✅     
 | Strings              | ✅      
 | Persistence (AOF)    | ✅  
-| Sets	               | ❌
+| Sets	               | ✅ 
 | Sorted sets	       | ❌
 | Hashes	           | ❌
 | Streams              | ❌
