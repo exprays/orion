@@ -25,7 +25,7 @@ Currently Orion is in its active developmet phase and I am doing it in buildspac
 | Streams              | ❌
 | HyperLogLogs         | ❌
 | Bitmaps	           | ❌
-| Persistence	       | ❌
+| Persistence	       | ✅ 
 | Pub/Sub	           | ❌
 | Transactions	       | ❌
 | Lua scripting	       | ❌
