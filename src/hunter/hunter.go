@@ -36,6 +36,9 @@ func Connect() {
 
 	var serverIP, serverPort string
 
+	//dev mode is the default mode of hunter which is used for local development
+	//custom mode is used for connecting to a custom server
+
 	if mode == "dev" {
 		serverIP = "127.0.0.1"
 		serverPort = "6379"
