@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chzyer/readline"
 	"github.com/fatih/color"
 )
 
@@ -64,6 +65,25 @@ func Connect() {
 
 	color.Green("Connected to server at %s", serverAddr)
 
+	// Initialize command history
+	history := NewCommandHistory()
+
+	// Setup readline with proper configuration
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          color.GreenString("%s> ", serverAddr),
+		HistoryFile:     "", // We're managing history ourselves
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+
+		// Tab completion function
+		AutoComplete: newAutoCompleter(),
+	})
+	if err != nil {
+		color.Red("Error initializing readline: %v", err)
+		return
+	}
+	defer rl.Close()
+
 	// Setup signal handler to catch ctrl+c
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
@@ -74,22 +94,24 @@ func Connect() {
 		os.Exit(0)
 	}()
 
-	reader := bufio.NewReader(os.Stdin)
 	for {
-		prompt := color.WhiteString("%s> ", serverAddr)
-		fmt.Print(prompt)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
+		input, err := rl.Readline()
+		if err != nil { // io.EOF, readline.ErrInterrupt
+			break
+		}
 
+		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
 		}
 
-		// Handle local CLEAR command
-		if strings.ToUpper(input) == "CLEAR" {
-			clearScreen()
+		// Handle local commands
+		if handleLocalCommand(input, history) {
 			continue
 		}
+
+		// Add to history
+		history.Add(input)
 
 		// Convert input to ORSP array
 		args := parseInput(input)
@@ -99,7 +121,7 @@ func Connect() {
 		}
 
 		// Marshal and send the ORSP array
-		_, err := conn.Write([]byte(orspArray.Marshal()))
+		_, err = conn.Write([]byte(orspArray.Marshal()))
 		if err != nil {
 			color.Red("Error sending command: %v", err)
 			continue
@@ -116,6 +138,60 @@ func Connect() {
 		// Print the response
 		printResponse(response)
 	}
+}
+
+// handleLocalCommand processes commands that are handled locally by the CLI
+func handleLocalCommand(input string, history *CommandHistory) bool {
+	cmd := strings.ToUpper(strings.Fields(input)[0])
+
+	switch cmd {
+	case "CLEAR":
+		clearScreen()
+		return true
+	case "HISTORY":
+		showHistory(history)
+		return true
+	case "HELP":
+		showHelp()
+		return true
+	case "EXIT", "QUIT":
+		fmt.Println("Goodbye!")
+		os.Exit(0)
+	}
+	return false
+}
+
+func showHistory(history *CommandHistory) {
+	entries := history.List(20) // Show last 20 commands
+	if len(entries) == 0 {
+		color.Yellow("No command history")
+		return
+	}
+
+	color.Cyan("Command History:")
+	for i, entry := range entries {
+		color.White("%d. %s [%s]", i+1, entry.Command, entry.Timestamp.Format("2006-01-02 15:04:05"))
+	}
+}
+
+func showHelp() {
+	color.Cyan("Hunter CLI Help:")
+	help := []struct {
+		cmd  string
+		desc string
+	}{
+		{"CLEAR", "Clear the screen"},
+		{"HISTORY", "Show command history"},
+		{"HELP", "Show this help message"},
+		{"EXIT/QUIT", "Exit the CLI"},
+	}
+
+	for _, h := range help {
+		fmt.Printf("%s%s%s\n", color.GreenString(h.cmd), strings.Repeat(" ", 15-len(h.cmd)), h.desc)
+	}
+
+	color.Yellow("\nServer Commands:")
+	color.Yellow("For a list of all available server commands, type: INFO")
 }
 
 func promptInput(prompt string, textColor color.Attribute) string {

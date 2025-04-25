@@ -11,19 +11,27 @@ import (
 
 // StartServer initializes the TCP server
 func StartServer(port string) {
-	// Initialize AOF
-	err := aof.InitAOF()
+	// Initialize logging system
+	err := InitLogging()
 	if err != nil {
-		fmt.Println("Error initializing AOF:", err)
+		fmt.Println("Error initializing logging system:", err)
+		return
+	}
+	defer CloseLogFiles()
+
+	// Initialize AOF
+	err = aof.InitAOF()
+	if err != nil {
+		LogError("Error initializing AOF: %v", err)
 		return
 	}
 
 	// Load AOF to restore state
-	fmt.Println("Loading AOF data...")
+	LogInfo("Loading AOF data...")
 	err = aof.LoadAOF(func(command protocol.ArrayValue) error {
 		response := HandleCommand(command)
 		if errValue, ok := response.(protocol.ErrorValue); ok {
-			fmt.Printf("Warning: Error handling command %v: %s\n", command, string(errValue))
+			LogError("Warning: Error handling command %v: %s", command, string(errValue))
 			// Continue loading instead of returning an error
 			return nil
 		}
@@ -31,25 +39,25 @@ func StartServer(port string) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error loading AOF: %v\n", err)
+		LogError("Error loading AOF: %v", err)
 		// Consider whether you want to continue starting the server or exit here
 	} else {
-		fmt.Println("AOF data loaded successfully.")
+		LogInfo("AOF data loaded successfully.")
 	}
 
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		fmt.Println("Error starting server:", err)
+		LogError("Error starting server: %v", err)
 		return
 	}
 	defer listener.Close()
 
-	fmt.Println("Server is running and listening on port", port)
+	LogInfo("Server is running and listening on port %s", port)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
+			LogError("Error accepting connection: %v", err)
 			continue
 		}
 		go handleConnection(conn)
@@ -59,20 +67,28 @@ func StartServer(port string) {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	clientAddr := conn.RemoteAddr().String()
+	LogInfo("New connection from %s", clientAddr)
+
 	reader := bufio.NewReader(conn)
 	for {
 		value, err := protocol.Unmarshal(reader)
 		if err != nil {
-			fmt.Println("Error reading input:", err)
+			LogError("Error reading input from %s: %v", clientAddr, err)
 			return
 		}
 
 		command, args, err := parseORSPCommand(value)
 		if err != nil {
+			LogError("Invalid command from %s: %v", clientAddr, err)
 			response := protocol.ErrorValue(err.Error())
 			conn.Write([]byte(response.Marshal()))
 			continue
 		}
+
+		// Log the command
+		cmdStr := commandToString(command, args)
+		LogCommand(clientAddr, cmdStr)
 
 		fullArgs := append([]protocol.ORSPValue{protocol.BulkStringValue(command)}, args...)
 		response := HandleCommand(fullArgs)
@@ -85,9 +101,27 @@ func handleConnection(conn net.Conn) {
 			}
 			aof.AppendCommand(fullCommand) // Convert and pass as ArrayValue
 		}
-
-		fmt.Printf("Command received: %s\n", command)
 	}
+}
+
+// commandToString converts a command and its args to a loggable string
+func commandToString(command string, args []protocol.ORSPValue) string {
+	var sb strings.Builder
+	sb.WriteString(command)
+
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case protocol.BulkStringValue:
+			sb.WriteString(" \"")
+			sb.WriteString(string(v))
+			sb.WriteString("\"")
+		default:
+			sb.WriteString(" ")
+			sb.WriteString(fmt.Sprintf("%v", v))
+		}
+	}
+
+	return sb.String()
 }
 
 func parseORSPCommand(value protocol.ORSPValue) (string, []protocol.ORSPValue, error) {
@@ -110,12 +144,3 @@ func parseORSPCommand(value protocol.ORSPValue) (string, []protocol.ORSPValue, e
 
 	return command, args, nil
 }
-
-// func parseStringCommand(command string) []protocol.ORSPValue {
-// 	parts := strings.Fields(command)
-// 	args := make([]protocol.ORSPValue, len(parts))
-// 	for i, part := range parts {
-// 		args[i] = protocol.BulkStringValue(part)
-// 	}
-// 	return args
-// }
