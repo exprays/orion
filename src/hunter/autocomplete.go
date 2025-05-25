@@ -29,37 +29,10 @@ func newAutoCompleter() *readline.PrefixCompleter {
 	var items []readline.PrefixCompleterInterface
 
 	for _, cmd := range commandList {
+		// Add both uppercase and lowercase versions for case-insensitive matching
 		items = append(items, readline.PcItem(cmd))
+		items = append(items, readline.PcItem(strings.ToLower(cmd)))
 	}
 
 	return readline.NewPrefixCompleter(items...)
-}
-
-// CompleteCommand provides completion for command names
-func CompleteCommand(line string, pos int) (string, []string, string) {
-	line = strings.ToUpper(line)
-	parts := strings.Fields(line[:pos])
-
-	if len(parts) == 0 {
-		// Complete command at the beginning
-		var candidates []string
-		for _, cmd := range commandList {
-			candidates = append(candidates, cmd)
-		}
-		return "", candidates, ""
-	}
-
-	if len(parts) == 1 && !strings.HasSuffix(line[:pos], " ") {
-		// Complete the first word (command)
-		var candidates []string
-		prefix := parts[0]
-		for _, cmd := range commandList {
-			if strings.HasPrefix(cmd, prefix) {
-				candidates = append(candidates, cmd)
-			}
-		}
-		return prefix, candidates, ""
-	}
-
-	return "", nil, ""
 }
