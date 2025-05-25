@@ -2,6 +2,7 @@ metadata.json
 
 #history files
 /history
+/cmd/server/logs
 
 # aof
 appendonly.orion
