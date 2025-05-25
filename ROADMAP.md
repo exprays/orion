@@ -1,6 +1,6 @@
 ## Roadmap
 
-- [-]  KV server & client
+- [x]  KV server & client
 - [ ]  Implementation of commands (all)
 - [ ]  Adding persistence
 - [ ]  Snapshots
