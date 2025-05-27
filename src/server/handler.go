@@ -50,6 +50,13 @@ var CommandMap = map[string]CommandHandler{
 	"SUNION":      commands.HandleSUnion,
 	"SUNIONSTORE": commands.HandleSUnionStore,
 	"SRANDMEMBER": commands.HandleSRandMember,
+
+	//hash commands
+	"HSET":    commands.HandleHSet,
+	"HGET":    commands.HandleHGet,
+	"HDEL":    commands.HandleHDel,
+	"HEXISTS": commands.HandleHExists,
+	"HLEN":    commands.HandleHLen,
 }
 
 // HandleCommand routes the command to the correct handler

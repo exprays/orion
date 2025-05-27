@@ -20,6 +20,9 @@ var commandList = []string{
 	"SADD", "SCARD", "SMEMBERS", "SISMEMBER", "SREM", "SPOP", "SMOVE",
 	"SDIFF", "SDIFFSTORE", "SUNION", "SUNIONSTORE", "SRANDMEMBER",
 
+	// Hash commands
+	"HSET", "HGET", "HDEL", "HEXISTS", "HLEN",
+
 	// Client commands
 	"CLEAR", "HISTORY", "HELP", "EXIT", "QUIT",
 }
