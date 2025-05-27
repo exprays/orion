@@ -973,3 +973,57 @@ func (ds *DataStore) Hset(key string, fieldValues ...string) int {
 
 	return created
 }
+
+// HGet gets the value of a field from a hash
+func (ds *DataStore) HGet(key, field string) (string, bool) {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	hash, exists := ds.hashStore[key]
+	if !exists {
+		return "", false
+	}
+
+	value, exists := hash[field]
+	return value, exists
+}
+
+// HExists checks if a field exists in a hash
+func (ds *DataStore) HExists(key, field string) bool {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	hash, exists := ds.hashStore[key]
+	if !exists {
+		return false
+	}
+
+	_, exists = hash[field]
+	return exists
+}
+
+// HDel deletes fields from a hash
+func (ds *DataStore) HDel(key string, fields ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	hash, exists := ds.hashStore[key]
+	if !exists {
+		return 0
+	}
+
+	deleted := 0
+	for _, field := range fields {
+		if _, exists := hash[field]; exists {
+			delete(hash, field)
+			deleted++
+		}
+	}
+
+	// Remove the hash if it's empty
+	if len(hash) == 0 {
+		delete(ds.hashStore, key)
+	}
+
+	return deleted
+}
