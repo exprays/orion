@@ -16,12 +16,13 @@ type DataStore struct {
 	mu        sync.RWMutex
 	store     map[string]string
 	setStore  map[string]map[string]struct{} // Field for sets
+	hashStore map[string]map[string]string   // Field for hashes
 	TTLStore  map[string]int64               // Stores TTL (Time to Live) for each key in seconds
 	startTime time.Time
 }
 
 // Store is the global instance of DataStore
-// hii
+
 var Store *DataStore
 
 func init() {
@@ -32,9 +33,10 @@ func init() {
 // NewDataStore initializes a new data store
 func NewDataStore() *DataStore {
 	ds := &DataStore{
-		store:    make(map[string]string),
-		setStore: make(map[string]map[string]struct{}), // Initialize setStore ( for implementation of sets )
-		TTLStore: make(map[string]int64),
+		store:     make(map[string]string),
+		setStore:  make(map[string]map[string]struct{}), // Initialize setStore ( for implementation of sets )
+		hashStore: make(map[string]map[string]string),   // Initialize hashStore
+		TTLStore:  make(map[string]int64),
 	}
 	return ds
 }
@@ -940,4 +942,34 @@ func (ds *DataStore) SRandMember(key string, count int) []string {
 	}
 
 	return result
+}
+
+// Hashmaps @ORION
+// DevPhase 2A @exprays 27-05-2025 (DevPhase represents the year and quarter of development phase)
+
+// HSet sets the value of a field in a hash stored at key
+func (ds *DataStore) Hset(key string, fieldValues ...string) int {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	if len(fieldValues)%2 != 0 {
+		return -1 // Invalid number of arguments
+	}
+
+	if _, exists := ds.hashStore[key]; !exists {
+		ds.hashStore[key] = make(map[string]string)
+	}
+
+	created := 0
+	for i := 0; i < len(fieldValues); i += 2 {
+		field := fieldValues[i]
+		value := fieldValues[i+1]
+
+		if _, exists := ds.hashStore[key][field]; !exists {
+			created++
+		}
+		ds.hashStore[key][field] = value
+	}
+
+	return created
 }
