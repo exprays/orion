@@ -964,7 +964,7 @@ func (ds *DataStore) SRandMember(key string, count int) []string {
 // DevPhase 2A @exprays 27-05-2025 (DevPhase represents the year and quarter of development phase)
 
 // HSet sets the value of a field in a hash stored at key
-func (ds *DataStore) Hset(key string, fieldValues ...string) int {
+func (ds *DataStore) HSet(key string, fieldValues ...string) int {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
