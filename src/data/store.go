@@ -103,6 +103,18 @@ func (ds *DataStore) GetAllCommands() ([]protocol.ArrayValue, error) {
 		}
 	}
 
+	for key, hash := range ds.hashStore {
+		for field, value := range hash {
+			cmd := protocol.ArrayValue{
+				protocol.BulkStringValue("HSET"),
+				protocol.BulkStringValue(key),
+				protocol.BulkStringValue(field),
+				protocol.BulkStringValue(value),
+			}
+			commands = append(commands, cmd)
+		}
+	}
+
 	for key, ttl := range ds.TTLStore {
 		cmd := protocol.ArrayValue{
 			protocol.BulkStringValue("EXPIRE"),
@@ -586,8 +598,11 @@ func (ds *DataStore) DBSize() int {
 	// Count keys in the set store
 	setStoreSize := len(ds.setStore)
 
+	// Count keys in the hash store
+	hashStoreSize := len(ds.hashStore)
+
 	// Return the total number of keys
-	return mainStoreSize + setStoreSize
+	return mainStoreSize + setStoreSize + hashStoreSize
 }
 
 // FLUSHALL UNIVERSAL .....
@@ -599,6 +614,7 @@ func (ds *DataStore) FlushAll() {
 
 	ds.store = make(map[string]string)
 	ds.setStore = make(map[string]map[string]struct{})
+	ds.hashStore = make(map[string]map[string]string)
 	ds.TTLStore = make(map[string]int64)
 
 	// Append to AOF
@@ -1026,4 +1042,17 @@ func (ds *DataStore) HDel(key string, fields ...string) int {
 	}
 
 	return deleted
+}
+
+// HLen returns the number of fields in a hash
+func (ds *DataStore) HLen(key string) int {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+
+	hash, exists := ds.hashStore[key]
+	if !exists {
+		return 0
+	}
+
+	return len(hash)
 }
