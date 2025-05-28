@@ -7,3 +7,5 @@ metadata.json
 # aof
 appendonly.orion
 *.orion
+
+/node_modules
