@@ -32,23 +32,47 @@ export default function KeyManagement() {
   }, []);
 
   useEffect(() => {
-    // Filter keys based on search term
-    const filtered = keys.filter(key => 
-      key.key.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredKeys(filtered);
+    // Filter keys based on search term - add safety check
+    if (Array.isArray(keys)) {
+      const filtered = keys.filter(key => 
+        key.key.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredKeys(filtered);
+    } else {
+      setFilteredKeys([]);
+    }
   }, [keys, searchTerm]);
 
   const fetchKeys = async () => {
     setIsLoading(true);
-    const response = await orionAPI.getKeys('*', 1000);
+    setError(null);
     
-    if (response.success && response.data) {
-      setKeys(response.data);
-      setError(null);
-    } else {
-      setError(response.error || 'Failed to fetch keys');
+    try {
+      const response = await orionAPI.getKeys('*', 1000);
+      
+      if (response.success && response.data) {
+        // Ensure we have an array
+        if (Array.isArray(response.data)) {
+          setKeys(response.data);
+          setError(null);
+        } else {
+          console.error('API returned non-array data:', response.data);
+          setError('Invalid data format received from server');
+          setKeys([]);
+        }
+      } else {
+        const errorMsg = response.error || 'Failed to fetch keys';
+        console.error('API error:', errorMsg);
+        setError(errorMsg);
+        setKeys([]);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred';
+      console.error('Fetch error:', err);
+      setError(errorMsg);
+      setKeys([]);
     }
+    
     setIsLoading(false);
   };
 

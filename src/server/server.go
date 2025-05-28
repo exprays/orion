@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net"
 	"orion/src/aof"
+	"orion/src/data" // Add this import
+	"orion/src/http"
 	"orion/src/protocol"
 	"strings"
 )
 
-// StartServer initializes the TCP server
-func StartServer(port string) {
+// StartServer initializes both TCP and HTTP servers
+func StartServer(port string, httpPort int) {
 	// Initialize logging system
 	err := InitLogging()
 	if err != nil {
@@ -18,6 +20,9 @@ func StartServer(port string) {
 		return
 	}
 	defer CloseLogFiles()
+
+	// Initialize the store
+	store := data.GetStore() // Get the global store instance
 
 	// Initialize AOF
 	err = aof.InitAOF()
@@ -40,19 +45,28 @@ func StartServer(port string) {
 
 	if err != nil {
 		LogError("Error loading AOF: %v", err)
-		// Consider whether you want to continue starting the server or exit here
 	} else {
 		LogInfo("AOF data loaded successfully.")
 	}
 
+	// Start HTTP server in a goroutine
+	go func() {
+		LogInfo("Starting HTTP API server on port %d", httpPort)
+		httpServer := http.NewHTTPServer(httpPort, store) // Now store is defined
+		if err := httpServer.Start(); err != nil {
+			LogError("HTTP server error: %v", err)
+		}
+	}()
+
+	// Start TCP server
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		LogError("Error starting server: %v", err)
+		LogError("Error starting TCP server: %v", err)
 		return
 	}
 	defer listener.Close()
 
-	LogInfo("Server is running and listening on port %s", port)
+	LogInfo("TCP server is running and listening on port %s", port)
 
 	for {
 		conn, err := listener.Accept()

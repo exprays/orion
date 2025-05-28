@@ -2,7 +2,6 @@ package http
 
 import (
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -23,58 +22,6 @@ type CommandExecutionMessage struct {
 	Command string `json:"command"`
 	Result  string `json:"result"`
 	Success bool   `json:"success"`
-}
-
-func (s *HTTPServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := s.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
-		return
-	}
-	defer conn.Close()
-
-	// Add client to the list
-	s.clients[conn] = true
-	log.Printf("WebSocket client connected. Total clients: %d", len(s.clients))
-
-	// Send initial connection message
-	s.sendToClient(conn, WebSocketMessage{
-		Type:      "connection",
-		Data:      map[string]string{"status": "connected"},
-		Timestamp: time.Now().Unix(),
-	})
-
-	// Handle incoming messages
-	for {
-		var msg map[string]interface{}
-		err := conn.ReadJSON(&msg)
-		if err != nil {
-			log.Printf("WebSocket read error: %v", err)
-			break
-		}
-
-		// Handle different message types
-		msgType, ok := msg["type"].(string)
-		if !ok {
-			continue
-		}
-
-		switch msgType {
-		case "ping":
-			s.sendToClient(conn, WebSocketMessage{
-				Type:      "pong",
-				Data:      map[string]string{"status": "alive"},
-				Timestamp: time.Now().Unix(),
-			})
-		case "subscribe":
-			// Handle subscription to specific events
-			s.handleSubscription(conn, msg)
-		}
-	}
-
-	// Remove client from the list
-	delete(s.clients, conn)
-	log.Printf("WebSocket client disconnected. Total clients: %d", len(s.clients))
 }
 
 func (s *HTTPServer) handleSubscription(conn *websocket.Conn, msg map[string]interface{}) {

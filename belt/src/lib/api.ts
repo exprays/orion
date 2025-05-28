@@ -6,7 +6,7 @@ class OrionAPI {
   private baseUrl: string;
   private ws: WebSocket | null = null;
 
-  constructor(baseUrl: string = 'http://localhost:6379') {
+  constructor(baseUrl: string = 'http://localhost:8080') {
     this.baseUrl = baseUrl;
   }
 

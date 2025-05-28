@@ -76,6 +76,62 @@ func (ds *DataStore) GetAllData() map[string]string {
 	return data
 }
 
+// Size returns the number of keys in the store
+func (ds *DataStore) Size() int {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return len(ds.store)
+}
+
+// Getstore returns the global store instance
+func GetStore() *DataStore {
+	return Store
+}
+
+// Delete removes a specific key from all stores
+func (ds *DataStore) Delete(key string) bool {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	deleted := false
+
+	// Check and delete from main store
+	if _, exists := ds.store[key]; exists {
+		delete(ds.store, key)
+		deleted = true
+	}
+
+	// Check and delete from set store
+	if _, exists := ds.setStore[key]; exists {
+		delete(ds.setStore, key)
+		deleted = true
+	}
+
+	// Check and delete from hash store
+	if _, exists := ds.hashStore[key]; exists {
+		delete(ds.hashStore, key)
+		deleted = true
+	}
+
+	// Remove TTL if exists
+	if _, exists := ds.TTLStore[key]; exists {
+		delete(ds.TTLStore, key)
+	}
+
+	if deleted {
+		// Append to AOF
+		command := protocol.ArrayValue{
+			protocol.BulkStringValue("DEL"),
+			protocol.BulkStringValue(key),
+		}
+		if err := aof.AppendCommand(command); err != nil {
+			fmt.Println("Error appending to AOF:", err)
+		}
+	}
+
+	return deleted
+}
+
 // GetAllCommands returns all commands to recreate the current state
 func (ds *DataStore) GetAllCommands() ([]protocol.ArrayValue, error) {
 	ds.mu.RLock()
